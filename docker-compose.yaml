@@ -1,0 +1,9 @@
+services:
+  api:
+    build: .
+    container_name: marketplace_by_procrastination
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./app:/app/app
+    restart: unless-stopped
