@@ -7,3 +7,23 @@ services:
     volumes:
       - ./app:/app/app
     restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://marketplace:procrastination67@db:5432/marketplace_db
+    
+  db:
+    image: postgres:16
+    container_name: marketplace_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: procrastination67
+      POSTGRES_DB: marketplace_db
+
+volumes:
+  postgres_data:
