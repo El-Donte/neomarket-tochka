@@ -5,12 +5,11 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./app:/app/app
-    restart: unless-stopped
-    depends_on:
-      - db
+      - .:/app  # Монтируем корень проекта в /app контейнера
     environment:
       DATABASE_URL: postgresql://marketplace:procrastination67@db:5432/marketplace_db
+    depends_on:
+      - db
     
   db:
     image: postgres:16

@@ -1,24 +1,16 @@
 from fastapi import FastAPI, HTTPException
-from app.api.routes import router
-import time
-
-#БД
+from fastapi.middleware.cors import CORSMiddleware # Новый импорт
 from contextlib import asynccontextmanager
-from .database import create_db_and_tables, engine
-from . import models
 from sqlalchemy import text
+from .database import create_db_and_tables, engine
+from app.api.routes import router as base_router
+from app.api import skus, products, invoices, sellers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        create_db_and_tables()
-    except Exception as e:
-        raise Exception(f"Не удалось создать таблицы {e}")
-    
+    create_db_and_tables()
     yield
-    engine.dispose()  #Закрываем соединения с БД
-
-
+    engine.dispose()
 
 app = FastAPI(
     title="MarketPlace by Procrastination",
@@ -26,16 +18,30 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-app.include_router(router)
+# Настройка CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.get("/")
+app.include_router(base_router, include_in_schema=False)
+app.include_router(sellers.router, prefix="/api/v1/sellers", include_in_schema=False)
+app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
+app.include_router(skus.router, prefix="/api/v1/skus", tags=["SKU"])
+app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["Invoices"])
+
+@app.get("/", include_in_schema=False)
 def root():
     return {"message": "Service is running"}
 
-@app.get("/health")
+@app.get("/health", include_in_schema=False)
 def health_check():
     try:
-        engine.connect().execute(text("SELECT 1"))
-        return {"db": "ok"}
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
     except Exception as e:
-        raise HTTPException(503, f"DB error: {e}")
+        raise HTTPException(status_code=503, detail=str(e))
