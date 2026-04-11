@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Session
 from app.database import engine
-from app.models import SKU, SKUCreate, SKURead
+from app.models.sku import SKU
+from app.DTO.sku import SKUCreate, SKURead
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ def update_sku(sku_id: int, sku_in: SKUCreate, session: Session = Depends(get_se
     for key, value in sku_data.items():
         setattr(db_sku, key, value)
     
-    db_sku.updated_at = datetime.utcnow()
+    db_sku.updated_at = datetime.now(timezone.utc)
     session.add(db_sku)
     session.commit()
     session.refresh(db_sku)

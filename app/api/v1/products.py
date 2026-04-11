@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Session, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
+
 from app.database import engine
-from app.models import Product, ProductCreate
+from app.models.product import Product
+from app.DTO.product import ProductCreate, ProductRead
 
 router = APIRouter()
 
@@ -20,10 +22,13 @@ def create_product(product_in: ProductCreate, session: Session = Depends(get_ses
     session.refresh(db_product)
     return db_product
 
-@router.get("/{id}", response_model=Product)
+@router.get("/{id}", response_model=ProductRead)
 def get_product(id: int, session: Session = Depends(get_session)):
-    """Получить товар со всеми его SKU"""
-    statement = select(Product).where(Product.id == id).options(joinedload(Product.skus))
+    statement = (
+        select(Product)
+        .where(Product.id == id)
+        .options(selectinload(Product.skus))
+    )
     product = session.exec(statement).first()
     if not product:
         raise HTTPException(status_code=404, detail="Товар не найден")
@@ -41,7 +46,7 @@ def update_product(id: int, product_in: ProductCreate, session: Session = Depend
         setattr(db_product, key, value)
     
     db_product.status = "ON_MODERATION" 
-    db_product.updated_at = datetime.utcnow()
+    db_product.updated_at = datetime.now(timezone.utc)
     
     session.add(db_product)
     session.commit()

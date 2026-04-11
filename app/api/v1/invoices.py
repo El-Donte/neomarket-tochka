@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.database import engine
-from app.models.invoice import Invoice, InvoiceItem
+from app.models.invoice import Invoice
+from app.DTO.invoice import InvoiceItem
 from app.DTO.invoice import InvoiceCreate, InvoiceRead
 from app.database import get_session
 
-invoices_router = APIRouter()
+router = APIRouter()
 
-@invoices_router.post("/", response_model=InvoiceRead)
+@router.post("/", response_model=InvoiceRead)
 def create_invoice(invoice_in: InvoiceCreate, session: Session = Depends(get_session)):
     """Создать черновик накладной"""
     from app.models.seller import Seller
@@ -36,7 +36,7 @@ def create_invoice(invoice_in: InvoiceCreate, session: Session = Depends(get_ses
     session.refresh(invoice)
     return invoice
 
-@invoices_router.post("/accept", response_model=InvoiceRead)
+@router.post("/accept", response_model=InvoiceRead)
 def accept_invoice(invoice_id: int, session: Session = Depends(get_session)):
     """Принять накладную и обновить остатки"""
     from app.models.sku import SKU
@@ -75,7 +75,7 @@ def accept_invoice(invoice_id: int, session: Session = Depends(get_session)):
         for sku_id, quantity in sku_quantities.items():
             sku = session.get(SKU, sku_id)
             sku.active_quantity += quantity
-            sku.updated_at = datetime.utcnow()
+            sku.updated_at = datetime.now(timezone.utc)
             session.add(sku)
 
             stock = session.exec(
@@ -84,7 +84,7 @@ def accept_invoice(invoice_id: int, session: Session = Depends(get_session)):
             
             if stock:
                 stock.quantity += quantity
-                stock.updated_at = datetime.utcnow()
+                stock.updated_at = datetime.now(timezone.utc)
                 session.add(stock)
             else:
                 new_stock = Stock(
@@ -94,7 +94,7 @@ def accept_invoice(invoice_id: int, session: Session = Depends(get_session)):
                 session.add(new_stock)
 
         invoice.status = "ACCEPTED"
-        invoice.updated_at = datetime.utcnow()
+        invoice.updated_at =datetime.now(timezone.utc)
         session.add(invoice)
         
         session.commit()

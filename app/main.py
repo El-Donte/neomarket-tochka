@@ -2,15 +2,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware # Новый импорт
 from contextlib import asynccontextmanager
 from sqlalchemy import text
-
-from app.api.v1 import invoices, products, sellers
 from .database import create_db_and_tables, engine
-from app.api.v1.routes import router as base_router
-from app.api.v1 import sku
+from app.api.v1 import sku, products, invoices, sellers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_db_and_tables()
+    try:
+        create_db_and_tables()
+    except Exception as e:
+        raise Exception(f"Не удалось создать таблицы {e}")
+
     yield
     engine.dispose()
 
@@ -29,11 +30,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(base_router, include_in_schema=False)
-app.include_router(sellers.router, prefix="/api/v1/sellers", include_in_schema=False)
+
+app.include_router(sellers.router, prefix="/api/v1/sellers")
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(sku.router, prefix="/api/v1/skus", tags=["SKU"])
-app.include_router(invoices.invoices_router, prefix="/api/v1/invoices", tags=["Invoices"])
+app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["Invoices"])
 
 @app.get("/", include_in_schema=False)
 def root():

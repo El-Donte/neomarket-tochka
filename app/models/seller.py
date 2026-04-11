@@ -1,6 +1,5 @@
-from datetime import datetime
-from typing import Optional, List
-from sqlmodel import Field, SQLModel, Relationship
+from typing import Optional
+from sqlmodel import Field, SQLModel
 
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"

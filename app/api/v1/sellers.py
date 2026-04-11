@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
 from app.database import engine
-from app.models import Seller, SellerCreate, SellerRead
+from app.models.seller import Seller
+from app.DTO.seller import SellerCreate, SellerRead
 
 router = APIRouter()
 

@@ -20,6 +20,5 @@ class SKURead(SQLModel):
     name: str
     price: int
     status: str
-    active_quantity: int
     created_at: datetime
     characteristics: List[CharacteristicRead] = []

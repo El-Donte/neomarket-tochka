@@ -1,6 +1,6 @@
-from datetime import datetime
-from typing import Optional, List
-from sqlmodel import Field, SQLModel, Relationship
+from typing import Optional
+from sqlmodel import SQLModel
+
 class SellerCreate(SQLModel):
     name: str
     legal_name: Optional[str] = None
