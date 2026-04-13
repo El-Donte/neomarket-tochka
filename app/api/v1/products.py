@@ -18,7 +18,7 @@ def create_product(
 ):
     """Создать товар"""
     db_product = Product.model_validate(product_in)
-    db_product.seller_id = seller_id
+    db_product.seller_id = seller_id #Принудительно присваиеваем ID текущего seller
     session.add(db_product)
     session.commit()
     session.refresh(db_product)

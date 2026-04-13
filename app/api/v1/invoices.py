@@ -1,21 +1,24 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.models.invoice import Invoice
-from app.DTO.invoice import InvoiceItem
-from app.DTO.invoice import InvoiceCreate, InvoiceRead
+from app.models.invoice import Invoice,  Stock
+from app.models.sku import SKU
+from app.DTO.invoice import InvoiceCreate, InvoiceRead, InvoiceItem
 from app.database import get_session
+from app.api.v1.seller_depends import get_current_seller
 
 router = APIRouter()
 
 @router.post("/", response_model=InvoiceRead)
-def create_invoice(invoice_in: InvoiceCreate, session: Session = Depends(get_session)):
+def create_invoice(
+    invoice_in: InvoiceCreate, 
+    session: Session = Depends(get_session),
+    seller_id: int = Depends(get_current_seller)
+    ):
     """Создать черновик накладной"""
     from app.models.seller import Seller
 
-    seller = session.get(Seller, invoice_in.seller_id)
-    if not seller:
-        raise HTTPException(status_code=404, detail="Seller не найден")
+    invoice_in.seller_id.seller_id = seller_id #Принудительно присваиеваем ID текущего seller
 
     invoice = Invoice.model_validate(invoice_in)
     session.add(invoice)
@@ -37,15 +40,16 @@ def create_invoice(invoice_in: InvoiceCreate, session: Session = Depends(get_ses
     return invoice
 
 @router.post("/accept", response_model=InvoiceRead)
-def accept_invoice(invoice_id: int, session: Session = Depends(get_session)):
+def accept_invoice(
+    invoice_id: int, 
+    session: Session = Depends(get_session),
+    seller_id: int = Depends(get_current_seller)):
     """Принять накладную и обновить остатки"""
-    from app.models.sku import SKU
-    from app.models.invoice import Stock
 
     statement = select(Invoice).where(Invoice.id == invoice_id)
     invoice = session.exec(statement).first()
     
-    if not invoice:
+    if not invoice or invoice.seller_id != seller_id:
         raise HTTPException(status_code=404, detail="Накладная не найдена")
 
     if invoice.status != "CREATED":
