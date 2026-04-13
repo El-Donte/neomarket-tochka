@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
-from app.models.sku import SKU
+
+if TYPE_CHECKING:
+    from app.models.sku import SKU
 
 class Product(SQLModel, table=True):
     __tablename__ = "products"

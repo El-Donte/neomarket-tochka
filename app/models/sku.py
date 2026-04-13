@@ -1,6 +1,10 @@
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+
+if TYPE_CHECKING:
+    from app.models.invoice import InvoiceItem, Stock
+from app.models.product import Product
 
 class CharacteristicValue(SQLModel, table=True):
     __tablename__ = "sku_characteristics"
@@ -23,3 +27,5 @@ class SKU(SQLModel, table=True):
 
     product: "Product" = Relationship(back_populates="skus")
     characteristics: List[CharacteristicValue] = Relationship()
+    invoice_items: List["InvoiceItem"] = Relationship(back_populates="sku")
+    stock: Optional["Stock"] = Relationship(back_populates="sku")

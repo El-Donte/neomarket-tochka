@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.models.invoice import Invoice,  Stock
+from app.models.invoice import Invoice, InvoiceItem, Stock
 from app.models.sku import SKU
-from app.DTO.invoice import InvoiceCreate, InvoiceRead, InvoiceItem
+from app.DTO.invoice import InvoiceCreate, InvoiceRead
 from app.database import get_session
 from app.api.v1.seller_depends import get_current_seller
 
@@ -16,27 +16,29 @@ def create_invoice(
     seller_id: int = Depends(get_current_seller)
     ):
     """Создать черновик накладной"""
-    from app.models.seller import Seller
 
-    invoice_in.seller_id.seller_id = seller_id #Принудительно присваиеваем ID текущего seller
-
-    invoice = Invoice.model_validate(invoice_in)
+    invoice = Invoice(
+        seller_id=seller_id,
+        number=invoice_in.number,
+        comment=invoice_in.comment
+    )
     session.add(invoice)
     session.flush()
 
     for item_data in invoice_in.items:
         item = InvoiceItem(
             invoice_id=invoice.id,
-            sku_id=item_data["sku_id"],
-            quantity=item_data["quantity"],
-            purchase_price=item_data.get("purchase_price")
+            sku_id=item_data.sku_id,
+            quantity=item_data.quantity,
+            purchase_price=item_data.purchase_price
         )
         session.add(item)
     
     session.commit()
     session.refresh(invoice)
 
-    session.refresh(invoice)
+    session.refresh(invoice, ["items"])
+    
     return invoice
 
 @router.post("/accept", response_model=InvoiceRead)
@@ -98,10 +100,11 @@ def accept_invoice(
                 session.add(new_stock)
 
         invoice.status = "ACCEPTED"
-        invoice.updated_at =datetime.now(timezone.utc)
+        invoice.updated_at = datetime.now(timezone.utc)
         session.add(invoice)
         
         session.commit()
 
-    session.refresh(invoice)
+    session.refresh(invoice, ["items"])
+    
     return invoice
