@@ -1,32 +1,40 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from datetime import datetime, timezone
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
-from app.database import engine
+from app.database import get_session
 from app.models.product import Product
 from app.DTO.product import ProductCreate, ProductRead
+from app.api.v1.seller_depends import get_current_seller
 
 router = APIRouter()
 
-def get_session():
-    with Session(engine) as session:
-        yield session
-
 @router.post("/", response_model=Product)
-def create_product(product_in: ProductCreate, session: Session = Depends(get_session)):
+def create_product(
+    product_in: ProductCreate, 
+    session: Session = Depends(get_session),
+    seller_id: int = Depends(get_current_seller)
+):
     """Создать товар"""
     db_product = Product.model_validate(product_in)
+    db_product.seller_id = seller_id
     session.add(db_product)
     session.commit()
     session.refresh(db_product)
     return db_product
 
 @router.get("/{id}", response_model=ProductRead)
-def get_product(id: int, session: Session = Depends(get_session)):
+def get_product(
+    id: int, 
+    session: Session = Depends(get_session),
+    seller_id: int = Depends(get_current_seller)
+):
+    """Получить товар"""
     statement = (
         select(Product)
         .where(Product.id == id)
+        .where(Product.seller_id == seller_id) # Проверка, что товар принадлежит текущему продавцу
         .options(selectinload(Product.skus))
     )
     product = session.exec(statement).first()
@@ -35,9 +43,19 @@ def get_product(id: int, session: Session = Depends(get_session)):
     return product
 
 @router.put("/{id}", response_model=Product)
-def update_product(id: int, product_in: ProductCreate, session: Session = Depends(get_session)):
+def update_product(
+    id: int, 
+    product_in: ProductCreate, 
+    session: Session = Depends(get_session),
+    seller_id: int = Depends(get_current_seller)
+):
     """Изменить товар и отправить на модерацию"""
-    db_product = session.get(Product, id)
+    statement = (
+        select(Product)
+        .where(Product.id == id)
+        .where(Product.seller_id == seller_id) # Проверяем, что товар есть и принадлежит текущему продавцу
+    )
+    db_product = session.exec(statement).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Товар не найден")
     
