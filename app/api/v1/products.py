@@ -70,3 +70,17 @@ def update_product(
     session.commit()
     session.refresh(db_product)
     return db_product
+
+@router.get("/", 
+            response_model=list[ProductRead],
+            response_model_include={"id", "title", "status", "created_at", "updated_at"})
+def get_products( 
+    session: Session = Depends(get_session),
+    seller_id: int = Depends(get_current_seller)):
+
+    statement = (
+        select(Product)
+        .where(Product.seller_id == seller_id)
+    )
+    db_products = session.exec(statement)
+    return db_products

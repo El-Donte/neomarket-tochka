@@ -108,3 +108,17 @@ def accept_invoice(
     session.refresh(invoice, ["items"])
     
     return invoice
+
+@router.get("/", 
+            response_model=list[InvoiceRead],
+            response_model_include={"id", "number", "status", "comment", "created_at"})
+def get_products( 
+    session: Session = Depends(get_session),
+    seller_id: int = Depends(get_current_seller)):
+
+    statement = (
+        select(Invoice)
+        .where(Invoice.seller_id == seller_id)
+    )
+    db_invoices= session.exec(statement)
+    return db_invoices
