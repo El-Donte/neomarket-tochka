@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel
-from app.DTO.sku import SKURead
 
 class InvoiceItemCreate(SQLModel):
     sku_id: int
@@ -23,7 +22,6 @@ class InvoiceItemDetailRead(SQLModel):
     sku_price: Optional[int] = None
 
 class InvoiceCreate(SQLModel):
-    seller_id: int
     number: Optional[str] = None
     comment: Optional[str] = None
     items: List[InvoiceItemCreate]
