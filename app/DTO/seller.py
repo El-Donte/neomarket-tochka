@@ -3,6 +3,7 @@ from sqlmodel import SQLModel
 
 class SellerCreate(SQLModel):
     name: str
+    password: str
     legal_name: Optional[str] = None
     inn: Optional[str] = None
     kpp: Optional[str] = None

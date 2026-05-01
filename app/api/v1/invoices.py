@@ -6,7 +6,7 @@ from app.models.invoice import Invoice, InvoiceItem, Stock
 from app.models.sku import SKU
 from app.DTO.invoice import InvoiceCreate, InvoiceRead, InvoiceDetailRead, InvoiceItemDetailRead
 from app.database import get_session
-from app.api.v1.seller_depends import get_current_seller
+from app.api.v1.dependencies.seller_depends import get_current_seller
 
 router = APIRouter()
 

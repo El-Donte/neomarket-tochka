@@ -6,7 +6,7 @@ from app.models.sku import SKU, CharacteristicValue
 from app.models.invoice import Stock, InvoiceItem
 from app.models.product import Product
 from app.DTO.sku import SKUCreate, SKUUpdate, SKURead
-from app.api.v1.seller_depends import get_current_seller
+from app.api.v1.dependencies.seller_depends import get_current_seller
 
 router = APIRouter()
 

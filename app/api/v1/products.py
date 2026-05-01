@@ -10,7 +10,7 @@ from app.models.product import Product
 from app.models.sku import SKU, CharacteristicValue
 from app.DTO.product import ProductCreate, ProductRead, ProductUpdate, ProductDashboardItem
 from app.DTO.sku import SKURead, SKUCreate
-from app.api.v1.seller_depends import get_current_seller
+from app.api.v1.dependencies.seller_depends import get_current_seller
 
 router = APIRouter()
 

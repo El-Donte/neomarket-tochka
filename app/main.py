@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware # Новый импорт
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from .database import create_db_and_tables, engine
-from app.api.v1 import sku, products, invoices, sellers
+from app.api.v1 import auth, sku, products, invoices
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,14 +24,14 @@ app = FastAPI(
 # Настройка CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8080"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-app.include_router(sellers.router, prefix="/api/v1/sellers")
+app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(sku.router, prefix="/api/v1/skus", tags=["SKU"])
 app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["Invoices"])

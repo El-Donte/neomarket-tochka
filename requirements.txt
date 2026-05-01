@@ -4,3 +4,6 @@ uvicorn[standard]==0.30.6
 sqlmodel==0.0.22
 sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
+
+passlib==1.7.4
+pyjwt==2.12.1

@@ -1,1 +1,1 @@
-from app.api.v1 import sku, products, invoices, sellers
+from app.api.v1 import auth, sku, products, invoices

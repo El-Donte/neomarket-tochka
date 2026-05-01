@@ -8,3 +8,4 @@ class Seller(SQLModel, table=True):
     legal_name: Optional[str] = None
     inn: Optional[str] = None
     kpp: Optional[str] = None
+    password_hash: str
