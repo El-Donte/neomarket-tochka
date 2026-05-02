@@ -5,12 +5,16 @@ class SellerCreate(SQLModel):
     name: str
     password: str
     legal_name: Optional[str] = None
-    inn: Optional[str] = None
+    inn: str
     kpp: Optional[str] = None
 
 class SellerRead(SQLModel):
     id: int
     name: str
     legal_name: Optional[str] = None
-    inn: Optional[str] = None
+    inn: str
     kpp: Optional[str] = None
+
+class SellerLogin(SQLModel):
+    inn: str
+    password: str

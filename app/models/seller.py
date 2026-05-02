@@ -6,6 +6,6 @@ class Seller(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     legal_name: Optional[str] = None
-    inn: Optional[str] = None
+    inn: str
     kpp: Optional[str] = None
     password_hash: str
