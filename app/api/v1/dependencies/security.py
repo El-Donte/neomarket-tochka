@@ -3,7 +3,7 @@ import os
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from typing import Optional, TypedDict
-from fastapi import Response
+from fastapi import Response, Request
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,7 +29,16 @@ def create_access_token(seller_id:int) -> str:
     to_encode=TokenPayload(seller_id=seller_id, exp=expire)
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
-def decode_token(token: str) -> Optional[TokenPayload]:
+def get_token_from_cookie(request: Request) -> Optional[str]:
+    """
+    Достает JWT токен из cookie.
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        return None
+    return token
+
+def decode_token(token: str) -> int:
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         
@@ -41,7 +50,7 @@ def decode_token(token: str) -> Optional[TokenPayload]:
         if exp is None or not isinstance(exp, int):
             return None
         
-        return TokenPayload(seller_id=seller_id, exp=exp)
+        return seller_id
         
     except jwt.ExpiredSignatureError:
         return None

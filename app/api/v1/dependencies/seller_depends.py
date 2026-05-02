@@ -1,39 +1,30 @@
 # dependencies/auth.py
-from fastapi import Header, HTTPException, Depends, status
+from fastapi import HTTPException, Depends, Request
 from sqlmodel import Session, select
-from typing import Optional
 from app.database import get_session
 from app.models.seller import Seller
-
+from app.api.v1.dependencies.security import get_token_from_cookie, decode_token
 
 def get_current_seller(
-    seller_id: Optional[int] = Header(None, alias="Seller-Id"),
+    request: Request,
     session: Session = Depends(get_session)
 ) -> int:
     """
-    Эмуляция:
-    Проверяет, что seller_id существует в БД.
-    Смотрит наличие заголовка Seller-Id, который хранит seller_id пользователя. (Пока без jwt-токена)
-    !!! При отстутствии заголовка берётся seller с id = 1 (Чисто для тестов)
-    Если seller с указанным id не найден, возвращает ошибку
+    Dependency: получает текущего авторизованного продавца.
+    При успехе возвращает его ID.
     """
+    token = get_token_from_cookie(request)
+    if not token:
+        raise HTTPException(status_code=401, detail="Продавец не найден")
+    
+    seller_id = decode_token(token)
+    if not seller_id:
+        raise HTTPException(status_code=401, detail="Неверный или просроченный токен")
 
-    if seller_id is None:
-        statement = select(Seller).limit(1)
-        seller = session.exec(statement).first()
-        if seller:
-            return seller.id
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="В системе нет продавцов. Сначала создайте продавца."
-            )
-    
-    seller = session.get(Seller, seller_id)
+    statement = (select(Seller).where((Seller.id == seller_id)))
+    seller = session.exec(statement).first()
+
     if not seller:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Продавец с ID {seller_id} не найден"
-        )
-    
+        raise HTTPException(status_code=401, detail="Продавец не найден")
+
     return seller_id
