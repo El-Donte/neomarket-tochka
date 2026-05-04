@@ -21,6 +21,7 @@ class SKU(SQLModel, table=True):
     seller_id: int = Field(foreign_key="sellers.id")
     name: str
     price: int
+    image_url: Optional[str] = None
     status: str = Field(default="ACTIVE")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

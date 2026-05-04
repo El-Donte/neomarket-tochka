@@ -2,11 +2,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware # Новый импорт
 from contextlib import asynccontextmanager
 from sqlalchemy import text
+from fastapi.staticfiles import StaticFiles
 from .database import create_db_and_tables, engine
-from app.api.v1 import auth, sku, products, invoices
+from app.api.v1 import auth, sku, products, invoices, upload
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure static directory exists
+    import os
+    os.makedirs("app/static/uploads", exist_ok=True)
     try:
         create_db_and_tables()
     except Exception as e:
@@ -24,7 +28,7 @@ app = FastAPI(
 # Настройка CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080"],
+    allow_origins=["http://localhost:3000", "http://localhost:8080", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,6 +39,10 @@ app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(sku.router, prefix="/api/v1/skus", tags=["SKU"])
 app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["Invoices"])
+app.include_router(upload.router, prefix="/api/v1/upload", tags=["Upload"])
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 @app.get("/", include_in_schema=False)
 def root():

@@ -40,7 +40,8 @@ def create_sku(
         product_id=sku_in.product_id,
         seller_id=seller_id,
         name=sku_in.name,
-        price=sku_in.price
+        price=sku_in.price,
+        image_url=sku_in.image_url
     )
 
     if hasattr(sku_in, 'characteristics') and sku_in.characteristics:
@@ -145,3 +146,33 @@ def delete_sku(
     session.commit()
     
     return {"message": "SKU успешно удалён", "sku_id": sku_id}
+    
+
+@router.get("/inventory/all", response_model=list[dict])
+def get_inventory(
+    session: Session = Depends(get_session),
+    seller_id: int = Depends(get_current_seller)
+):
+    """
+    ИНВЕНТАРЬ: Получить список всех SKU продавца с текущими остатками.
+    """
+    statement = (
+        select(SKU, Stock, Product.title)
+        .join(Stock, SKU.id == Stock.sku_id)
+        .join(Product, SKU.product_id == Product.id)
+        .where(SKU.seller_id == seller_id)
+    )
+    results = session.exec(statement).all()
+    
+    inventory = []
+    for sku, stock, product_title in results:
+        inventory.append({
+            "sku_id": sku.id,
+            "sku_name": sku.name,
+            "product_title": product_title,
+            "price": sku.price,
+            "quantity": stock.quantity,
+            "updated_at": stock.updated_at
+        })
+    
+    return inventory

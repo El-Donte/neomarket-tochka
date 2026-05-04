@@ -23,6 +23,7 @@ class SKUCreate(SQLModel):
     product_id: int
     name: str
     price: int
+    image_url: Optional[str] = None
     characteristics: Optional[List[CharacteristicCreate]] = None
 
 class SKUUpdate(SQLModel):
@@ -36,6 +37,7 @@ class SKURead(SQLModel):
     seller_id: int
     name: str
     price: int
+    image_url: Optional[str] = None
     status: str
     created_at: datetime
     updated_at: datetime

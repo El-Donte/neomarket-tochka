@@ -11,6 +11,7 @@ class Product(SQLModel, table=True):
     seller_id: int = Field(foreign_key="sellers.id")
     category_id: Optional[int] = None
     title: str
+    image_url: Optional[str] = None
     description: Optional[str] = None
     status: str = Field(default="CREATED")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

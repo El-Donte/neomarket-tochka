@@ -142,6 +142,7 @@ def get_products_dashboard(
         result.append(ProductDashboardItem(
             id=product.id,
             title=product.title,
+            image_url=product.image_url,
             status=product.status,
             sku_count=sku_count,
             published_sku_count=published_sku_count,
@@ -271,6 +272,7 @@ def add_sku_to_product(
         seller_id=seller_id,
         name=sku_in.name,
         price=sku_in.price,
+        image_url=sku_in.image_url,
     )
 
     if hasattr(sku_in, 'characteristics') and sku_in.characteristics:
