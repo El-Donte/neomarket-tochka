@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional, TypedDict
 from fastapi import Response, Request
 from dotenv import load_dotenv
+from uuid import UUID
 
 load_dotenv()
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
@@ -13,7 +14,7 @@ JWT_ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_DAYS"))
 JWT_SECURE = os.getenv("JWT_SECURE").lower() == "true"
 
 class TokenPayload(TypedDict):
-    seller_id: int
+    seller_id: str
     exp: int
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
@@ -24,9 +25,9 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-def create_access_token(seller_id:int) -> str:
+def create_access_token(seller_id:UUID) -> str:
     expire = int((datetime.now() + timedelta(days=JWT_ACCESS_TOKEN_EXPIRE_DAYS)).timestamp())
-    to_encode=TokenPayload(seller_id=seller_id, exp=expire)
+    to_encode=TokenPayload(seller_id=str(seller_id), exp=expire)
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 def get_token_from_cookie(request: Request) -> Optional[str]:
@@ -38,26 +39,25 @@ def get_token_from_cookie(request: Request) -> Optional[str]:
         return None
     return token
 
-def decode_token(token: str) -> int:
+def decode_token(token: str) -> Optional[UUID]:
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         
         seller_id = payload.get("seller_id")
-        exp = payload.get("exp")
         
-        if seller_id is None or not isinstance(seller_id, int):
-            return None
-        if exp is None or not isinstance(exp, int):
+        if seller_id is None or not isinstance(seller_id, str):
             return None
         
-        return seller_id
+        return UUID(seller_id)
         
     except jwt.ExpiredSignatureError:
         return None
     except jwt.InvalidTokenError:
         return None
+    except (ValueError, TypeError):
+        return None
 
-def set_auth_cookie(response: Response, seller_id: int):
+def set_auth_cookie(response: Response, seller_id: UUID):
     """
     Создаёт токен и устанавливает его в HttpOnly куку.
     """

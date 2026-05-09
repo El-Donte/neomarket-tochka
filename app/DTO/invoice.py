@@ -1,21 +1,22 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel
+from uuid import UUID
 
 class InvoiceItemCreate(SQLModel):
-    sku_id: int
+    sku_id: UUID
     quantity: int
     purchase_price: Optional[int] = None
 
 class InvoiceItemRead(SQLModel):
-    id: int
-    sku_id: int
+    id: UUID
+    sku_id: UUID
     quantity: int
     purchase_price: Optional[int] = None
 
 class InvoiceItemDetailRead(SQLModel):
-    id: int
-    sku_id: int
+    id: UUID
+    sku_id: UUID
     quantity: int
     purchase_price: Optional[int] = None
     sku_name: Optional[str] = None
@@ -27,8 +28,8 @@ class InvoiceCreate(SQLModel):
     items: List[InvoiceItemCreate]
 
 class InvoiceRead(SQLModel):
-    id: int
-    seller_id: int
+    id: UUID
+    seller_id: UUID
     number: Optional[str] = None
     status: str
     created_at: datetime
@@ -39,8 +40,8 @@ class InvoiceDetailRead(SQLModel):
     Детальная информация о накладной для страницы склада.
     Включает полную информацию о позициях с данными SKU.
     """
-    id: int
-    seller_id: int
+    id: UUID
+    seller_id: UUID
     number: Optional[str] = None
     status: str
     comment: Optional[str] = None

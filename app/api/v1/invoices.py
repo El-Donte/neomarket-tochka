@@ -7,6 +7,7 @@ from app.models.sku import SKU
 from app.DTO.invoice import InvoiceCreate, InvoiceRead, InvoiceDetailRead, InvoiceItemDetailRead
 from app.database import get_session
 from app.api.v1.dependencies.seller_depends import get_current_seller
+from uuid import UUID
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ router = APIRouter()
 def create_invoice(
     invoice_in: InvoiceCreate, 
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
     ):
     """Создать черновик накладной"""
 
@@ -44,9 +45,9 @@ def create_invoice(
 
 @router.post("/accept", response_model=InvoiceRead)
 def accept_invoice(
-    invoice_id: int, 
+    invoice_id: UUID, 
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)):
+    seller_id: UUID = Depends(get_current_seller)):
     """
     ПРИЁМКА НАКЛАДНОЙ: Принять накладную и обновить остатки на складе.
     
@@ -126,7 +127,7 @@ def accept_invoice(
             response_model=list[InvoiceRead])
 def get_invoices( 
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)):
+    seller_id: UUID = Depends(get_current_seller)):
     """
     СКЛАД: Получить список всех накладных продавца.
 
@@ -147,9 +148,9 @@ def get_invoices(
 
 @router.get("/{id}", response_model=InvoiceDetailRead)
 def get_invoice(
-    id: int,
+    id: UUID,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     СКЛАД: Получить детальную информацию о накладной.

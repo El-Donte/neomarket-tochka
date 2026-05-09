@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from sqlmodel import SQLModel
+from uuid import UUID
 
 class CharacteristicCreate(SQLModel):
     """Данные для создания характеристики SKU"""
@@ -8,7 +9,7 @@ class CharacteristicCreate(SQLModel):
     value: str
 
 class CharacteristicRead(SQLModel):
-    id: int
+    id: UUID
     name: str
     value: str
 
@@ -20,7 +21,7 @@ class SKUCreate(SQLModel):
     и принадлежит текущему продавцу.
     seller_id НЕ передаётся — берётся из токена авторизации.
     """
-    product_id: int
+    product_id: UUID
     name: str
     price: int
     image_url: Optional[str] = None
@@ -32,9 +33,9 @@ class SKUUpdate(SQLModel):
     price: Optional[int] = None
 
 class SKURead(SQLModel):
-    id: int
-    product_id: int
-    seller_id: int
+    id: UUID
+    product_id: UUID
+    seller_id: UUID
     name: str
     price: int
     image_url: Optional[str] = None

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 from typing import Optional
+from uuid import UUID
 
 from app.database import get_session
 from app.models.invoice import Stock, InvoiceItem
@@ -18,7 +19,7 @@ router = APIRouter()
 def create_product(
     product_in: ProductCreate, 
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     Создать товар.
@@ -35,9 +36,9 @@ def create_product(
 
 @router.get("/{id}", response_model=ProductRead)
 def get_product(
-    id: int,
+    id: UUID,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """Получить товар"""
     statement = (
@@ -53,10 +54,10 @@ def get_product(
     
 @router.put("/{id}", response_model=ProductRead)
 def update_product(
-    id: int,
+    id: UUID,
     product_in: ProductCreate, 
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     Полное обновление товара и отправка на модерацию.
@@ -89,7 +90,7 @@ def update_product(
             response_model=list[ProductRead])
 def get_products( 
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)):
+    seller_id: UUID = Depends(get_current_seller)):
 
     statement = (
         select(Product)
@@ -104,7 +105,7 @@ def get_products(
 @router.get("/dashboard/", response_model=list[ProductDashboardItem])
 def get_products_dashboard(
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller),
+    seller_id: UUID = Depends(get_current_seller),
     status: Optional[str] = Query(None, description="Фильтр по статусу: MODERATION или PUBLISHED")
 ):
     """
@@ -157,10 +158,10 @@ def get_products_dashboard(
 
 @router.patch("/{id}", response_model=ProductRead)
 def update_product_partial(
-    id: int,
+    id: UUID,
     product_in: ProductUpdate,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     РЕДАКТОР: Частичное обновление товара.
@@ -198,9 +199,9 @@ def update_product_partial(
 
 @router.post("/{id}/submit", response_model=ProductRead)
 def submit_product_for_moderation(
-    id: int,
+    id: UUID,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     РЕДАКТОР: Отправить товар на модерацию.
@@ -247,10 +248,10 @@ def submit_product_for_moderation(
 
 @router.post("/{id}/skus", response_model=SKURead)
 def add_sku_to_product(
-    id: int,
+    id: UUID,
     sku_in: SKUCreate,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     РЕДАКТОР: Добавить новый SKU к товару.
@@ -292,10 +293,10 @@ def add_sku_to_product(
 
 @router.delete("/{id}/skus/{sku_id}", response_model=dict)
 def remove_sku_from_product(
-    id: int,
-    sku_id: int,
+    id: UUID,
+    sku_id: UUID,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     РЕДАКТОР: Удалить SKU из товара.
@@ -345,10 +346,10 @@ def remove_sku_from_product(
 
 @router.put("/{id}/skus/{sku_id}", response_model=SKURead)
 def update_product_sku(
-    sku_id: int,
+    sku_id: UUID,
     sku_in: SKUCreate,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     РЕДАКТОР: Обновить SKU товара.

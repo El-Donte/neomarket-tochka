@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from uuid import UUID
+from uuid6 import uuid7
 
 if TYPE_CHECKING:
     from app.models.invoice import InvoiceItem, Stock
@@ -8,17 +10,17 @@ from app.models.product import Product
 
 class CharacteristicValue(SQLModel, table=True):
     __tablename__ = "sku_characteristics"
-    id: Optional[int] = Field(default=None, primary_key=True)
-    sku_id: int = Field(foreign_key="skus.id")
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    sku_id: UUID = Field(foreign_key="skus.id")
     name: str
     value: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class SKU(SQLModel, table=True):
     __tablename__ = "skus"
-    id: Optional[int] = Field(default=None, primary_key=True)
-    product_id: int = Field(foreign_key="products.id")
-    seller_id: int = Field(foreign_key="sellers.id")
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    product_id: UUID = Field(foreign_key="products.id")
+    seller_id: UUID = Field(foreign_key="sellers.id")
     name: str
     price: int
     image_url: Optional[str] = None

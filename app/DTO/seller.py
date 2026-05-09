@@ -1,5 +1,6 @@
 from typing import Optional
 from sqlmodel import SQLModel
+from uuid import UUID
 
 class SellerCreate(SQLModel):
     name: str
@@ -9,7 +10,7 @@ class SellerCreate(SQLModel):
     kpp: Optional[str] = None
 
 class SellerRead(SQLModel):
-    id: int
+    id: UUID
     name: str
     legal_name: Optional[str] = None
     inn: str

@@ -3,6 +3,7 @@ import os
 import uuid
 import shutil
 from app.api.v1.dependencies.seller_depends import get_current_seller
+from uuid import UUID
 
 router = APIRouter()
 
@@ -11,7 +12,7 @@ UPLOAD_DIR = "app/static/uploads"
 @router.post("/")
 async def upload_file(
     file: UploadFile = File(...),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     Загрузка изображения на сервер.

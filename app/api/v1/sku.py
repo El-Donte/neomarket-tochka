@@ -7,6 +7,7 @@ from app.models.invoice import Stock, InvoiceItem
 from app.models.product import Product
 from app.DTO.sku import SKUCreate, SKUUpdate, SKURead
 from app.api.v1.dependencies.seller_depends import get_current_seller
+from uuid import UUID
 
 router = APIRouter()
 
@@ -15,7 +16,7 @@ router = APIRouter()
 def create_sku(
     sku_in: SKUCreate, 
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     Создать SKU.
@@ -60,10 +61,10 @@ def create_sku(
 
 @router.put("/{sku_id}", response_model=SKURead)
 def update_sku(
-    sku_id: int, 
+    sku_id: UUID, 
     sku_in: SKUUpdate,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     Обновить SKU.
@@ -89,9 +90,9 @@ def update_sku(
 
 @router.get("/{sku_id}", response_model=SKURead)
 def get_sku(
-    sku_id: int,
+    sku_id: UUID,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     Получить информацию о SKU.
@@ -109,9 +110,9 @@ def get_sku(
 
 @router.delete("/{sku_id}", response_model=dict)
 def delete_sku(
-    sku_id: int,
+    sku_id: UUID,
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     Удалить SKU.
@@ -151,7 +152,7 @@ def delete_sku(
 @router.get("/inventory/all", response_model=list[dict])
 def get_inventory(
     session: Session = Depends(get_session),
-    seller_id: int = Depends(get_current_seller)
+    seller_id: UUID = Depends(get_current_seller)
 ):
     """
     ИНВЕНТАРЬ: Получить список всех SKU продавца с текущими остатками.

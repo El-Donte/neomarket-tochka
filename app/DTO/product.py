@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel
 from app.DTO.sku import SKURead
+from uuid import UUID
 
 class ProductCreate(SQLModel):
     """
@@ -15,8 +16,8 @@ class ProductCreate(SQLModel):
     category_id: Optional[int] = None
 
 class ProductRead(SQLModel):
-    id: int
-    seller_id: int
+    id: UUID
+    seller_id: UUID
     category_id: Optional[int]
     title: str
     image_url: Optional[str] = None
@@ -32,7 +33,7 @@ class ProductUpdate(SQLModel):
     category_id: Optional[int] = None
 
 class ProductDashboardItem(SQLModel):
-    id: int
+    id: UUID
     title: str
     image_url: Optional[str] = None
     status: str

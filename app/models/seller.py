@@ -1,9 +1,11 @@
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from uuid import UUID
+from uuid6 import uuid7
 
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
     name: str
     legal_name: Optional[str] = None
     inn: str
