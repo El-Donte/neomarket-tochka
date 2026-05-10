@@ -14,7 +14,7 @@ export const productApi = {
     return response.data;
   },
 
-  getById: async (id: number) => {
+  getById: async (id: string) => {
     const response = await apiClient.get<Product>(`products/${id}`);
     return response.data;
   },
@@ -24,22 +24,22 @@ export const productApi = {
     return response.data;
   },
 
-  update: async (id: number, data: any) => {
+  update: async (id: string, data: any) => {
     const response = await apiClient.patch<Product>(`products/${id}`, data);
     return response.data;
   },
 
-  updateSku: async (skuId: number, data: any) => {
+  updateSku: async (skuId: string, data: any) => {
     const response = await apiClient.put(`skus/${skuId}`, data);
     return response.data;
   },
 
-  delete: async (id: number) => {
+  delete: async (id: string) => {
     const response = await apiClient.delete(`products/${id}`);
     return response.data;
   },
 
-  deleteSku: async (skuId: number) => {
+  deleteSku: async (skuId: string) => {
     const response = await apiClient.delete(`skus/${skuId}`);
     return response.data;
   }

@@ -4,6 +4,7 @@ import { ShoppingCart, Eye, ImageOff } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { Product } from '../api/types';
 import { useCart } from '../store/CartContext';
+import { useNavigate } from 'react-router-dom';
 
 interface ProductCardProps {
   product: Product;
@@ -11,6 +12,7 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addToCart } = useCart();
+  const navigate = useNavigate();
   
   
   const sku = product.skus?.[0];
@@ -42,13 +44,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
     <motion.div
       whileHover={{ y: -8 }}
+      onClick={() => navigate(`/product/${product.id}`)}
       style={{
         background: 'var(--bg-secondary)',
         borderRadius: 'var(--radius-lg)',
         overflow: 'hidden',
         border: '1px solid var(--border-color)',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        cursor: 'pointer'
       }}
     >
         <div style={{ 
@@ -111,7 +115,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           >
             <ShoppingCart size={16} /> Добавить
           </button>
-          <button style={{ 
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/product/${product.id}`);
+            }}
+            style={{ 
             background: 'rgba(255,255,255,0.05)', 
             padding: '0.6rem', 
             borderRadius: 'var(--radius-md)',

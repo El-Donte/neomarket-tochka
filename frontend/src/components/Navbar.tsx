@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom';
 import { ShoppingBag, Search, LogOut } from 'lucide-react';
 import { useAuth } from '../store/AuthContext';
 import { useCart } from '../store/CartContext';
+import { useBuyerCart } from '../store/BuyerCartContext';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
-  const { totalItems } = useCart();
+  const { totalItems: supplyItems } = useCart();
+  const { totalItems: buyerItems } = useBuyerCart();
 
   return (
     <nav className="glass" style={{
@@ -50,10 +52,10 @@ const Navbar = () => {
           {user && <Link to="/dashboard">Дашборд</Link>}
           {user && <Link to="/inventory">Инвентарь</Link>}
           {user && <Link to="/orders">Накладные</Link>}
-          <Link to="/cart" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Link to="/buyer-cart" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'white' }}>
             <ShoppingBag size={20} />
-            <span style={{ fontSize: '0.95rem' }}>Поставка</span>
-            {totalItems > 0 && (
+            <span style={{ fontSize: '0.95rem' }}>Корзина</span>
+            {buyerItems > 0 && (
               <span style={{
                 position: 'absolute',
                 top: '-8px',
@@ -70,10 +72,36 @@ const Navbar = () => {
                 fontWeight: 'bold',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
               }}>
-                {totalItems}
+                {buyerItems}
               </span>
             )}
           </Link>
+          {user && <Link to="/buyer-orders">Мои заказы</Link>}
+
+          {user && (
+          <Link to="/cart" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: '1rem', paddingLeft: '1rem', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}>Поставка</span>
+            {supplyItems > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                background: '#fbbf24',
+                color: 'black',
+                fontSize: '0.7rem',
+                width: '18px',
+                height: '18px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold'
+              }}>
+                {supplyItems}
+              </span>
+            )}
+          </Link>
+          )}
           
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

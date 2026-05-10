@@ -9,8 +9,8 @@ export interface InvoiceItem {
 }
 
 export interface Invoice {
-  id: number;
-  seller_id: number;
+  id: string;
+  seller_id: string;
   number: string;
   status: 'CREATED' | 'ACCEPTED';
   comment?: string;
@@ -25,7 +25,7 @@ export const invoiceApi = {
     return response.data;
   },
   
-  getById: async (id: number) => {
+  getById: async (id: string) => {
     const response = await apiClient.get<Invoice>(`invoices/${id}`);
     return response.data;
   },
@@ -35,7 +35,7 @@ export const invoiceApi = {
     return response.data;
   },
   
-  accept: async (id: number) => {
+  accept: async (id: string) => {
     const response = await apiClient.post<Invoice>(`invoices/accept?invoice_id=${id}`);
     return response.data;
   }

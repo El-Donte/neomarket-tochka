@@ -26,7 +26,7 @@ const Orders = () => {
     }
   };
 
-  const handleViewDetails = async (id: number) => {
+  const handleViewDetails = async (id: string) => {
     try {
       const detail = await invoiceApi.getById(id);
       setSelectedInvoice(detail);
@@ -35,7 +35,7 @@ const Orders = () => {
     }
   };
 
-  const handleAccept = async (id: number) => {
+  const handleAccept = async (id: string) => {
     setIsAccepting(true);
     try {
       await invoiceApi.accept(id);

@@ -9,8 +9,8 @@ interface CartItem {
 interface CartContextType {
   items: CartItem[];
   addToCart: (sku: SKU) => void;
-  removeFromCart: (skuId: number) => void;
-  updateQuantity: (skuId: number, quantity: number) => void;
+  removeFromCart: (skuId: string) => void;
+  updateQuantity: (skuId: string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
 }
@@ -43,11 +43,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const removeFromCart = (skuId: number) => {
+  const removeFromCart = (skuId: string) => {
     setItems(prev => prev.filter(i => i.sku.id !== skuId));
   };
 
-  const updateQuantity = (skuId: number, quantity: number) => {
+  const updateQuantity = (skuId: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(skuId);
       return;

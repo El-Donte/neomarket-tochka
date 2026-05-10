@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './store/AuthContext';
 import { CartProvider } from './store/CartContext';
+import { BuyerCartProvider } from './store/BuyerCartContext';
 import Home from './pages/Home';
 import Catalog from './pages/Catalog';
 import Login from './pages/Login';
@@ -10,6 +11,9 @@ import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import Orders from './pages/Orders';
 import Cart from './pages/Cart';
+import BuyerCart from './pages/BuyerCart';
+import BuyerOrders from './pages/BuyerOrders';
+import ProductPage from './pages/ProductPage';
 import Navbar from './components/Navbar';
 import './index.css';
 
@@ -17,8 +21,9 @@ function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <Router>
-          <Toaster
+        <BuyerCartProvider>
+          <Router>
+            <Toaster
             position="top-right"
             toastOptions={{
               style: {
@@ -41,10 +46,14 @@ function App() {
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/cart" element={<Cart />} />
+                <Route path="/buyer-cart" element={<BuyerCart />} />
+                <Route path="/buyer-orders" element={<BuyerOrders />} />
+                <Route path="/product/:id" element={<ProductPage />} />
               </Routes>
             </main>
           </div>
         </Router>
+        </BuyerCartProvider>
       </CartProvider>
     </AuthProvider>
   );

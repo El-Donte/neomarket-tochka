@@ -5,7 +5,7 @@ import { useCart } from '../store/CartContext';
 import { toast } from 'react-hot-toast';
 
 interface InventoryItem {
-  sku_id: number;
+  sku_id: string;
   sku_name: string;
   product_title: string;
   price: number;

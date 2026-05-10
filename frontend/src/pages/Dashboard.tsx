@@ -2,23 +2,33 @@ import { useState, useEffect } from 'react';
 import { productApi } from '../api/products';
 import apiClient from '../api/client';
 import type { ProductDashboardItem } from '../api/types';
-import { Plus, Package, Clock, CheckCircle, Edit2, Trash2, Send } from 'lucide-react';
+import { Plus, Package, Clock, CheckCircle, Edit2, Trash2, Send, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
+
+interface SkuForm {
+  id?: string;
+  name: string;
+  price: string;
+  characteristics: { name: string; value: string }[];
+}
 
 const Dashboard = () => {
   const [products, setProducts] = useState<ProductDashboardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
   const [newProduct, setNewProduct] = useState({ 
     title: '', 
     description: '', 
-    price: '', 
-    sku_name: '', 
-    image_url: '',
-    characteristics: [] as { name: string, value: string }[]
+    image_url: ''
   });
+  
+  const [skus, setSkus] = useState<SkuForm[]>([
+    { name: 'Стандарт', price: '', characteristics: [] }
+  ]);
+  
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'ALL' | 'MODERATION' | 'PUBLISHED'>('ALL');
 
@@ -38,20 +48,26 @@ const Dashboard = () => {
     }
   };
 
-
-
   const handleEditClick = async (product: ProductDashboardItem) => {
     try {
       const fullProduct = await productApi.getById(product.id);
-      const sku = fullProduct.skus?.[0];
       setNewProduct({
         title: fullProduct.title,
         description: fullProduct.description || '',
-        image_url: fullProduct.image_url || '',
-        price: sku ? sku.price.toString() : '',
-        sku_name: sku ? sku.name : '',
-        characteristics: sku ? sku.characteristics.map(c => ({ name: c.name, value: c.value })) : []
+        image_url: fullProduct.image_url || ''
       });
+      
+      if (fullProduct.skus && fullProduct.skus.length > 0) {
+        setSkus(fullProduct.skus.map(sku => ({
+          id: sku.id,
+          name: sku.name,
+          price: sku.price.toString(),
+          characteristics: sku.characteristics.map(c => ({ name: c.name, value: c.value }))
+        })));
+      } else {
+        setSkus([{ name: 'Стандарт', price: '', characteristics: [] }]);
+      }
+      
       setEditingId(product.id);
       setShowAddModal(true);
     } catch (err) {
@@ -62,7 +78,8 @@ const Dashboard = () => {
   const closeModal = () => {
     setShowAddModal(false);
     setEditingId(null);
-    setNewProduct({ title: '', description: '', price: '', sku_name: '', image_url: '', characteristics: [] });
+    setNewProduct({ title: '', description: '', image_url: '' });
+    setSkus([{ name: 'Стандарт', price: '', characteristics: [] }]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,14 +99,16 @@ const Dashboard = () => {
         image_url: newProduct.image_url
       });
 
-      if (newProduct.price) {
-        await apiClient.post(`skus/`, {
-          name: newProduct.sku_name || 'Стандарт',
-          price: parseFloat(newProduct.price),
-          image_url: newProduct.image_url,
-          product_id: product.id,
-          characteristics: newProduct.characteristics
-        });
+      for (const sku of skus) {
+        if (sku.price) {
+          await apiClient.post(`skus/`, {
+            name: sku.name || 'Стандарт',
+            price: parseFloat(sku.price),
+            image_url: newProduct.image_url,
+            product_id: product.id,
+            characteristics: sku.characteristics
+          });
+        }
       }
 
       toast.success('Товар успешно добавлен!');
@@ -109,15 +128,22 @@ const Dashboard = () => {
         image_url: newProduct.image_url
       });
 
-      
-      const fullProduct = await productApi.getById(editingId!);
-      const sku = fullProduct.skus?.[0];
-
-      if (sku) {
-        await productApi.updateSku(sku.id, {
-          name: newProduct.sku_name || sku.name,
-          price: parseFloat(newProduct.price) || sku.price,
-        });
+      for (const sku of skus) {
+        if (sku.id) {
+          await productApi.updateSku(sku.id, {
+            name: sku.name,
+            price: parseFloat(sku.price) || 0,
+          });
+          // Если бы было API для обновления характеристик, вызвали бы здесь.
+        } else if (sku.price) {
+          await apiClient.post(`skus/`, {
+            name: sku.name || 'Стандарт',
+            price: parseFloat(sku.price),
+            image_url: newProduct.image_url,
+            product_id: editingId,
+            characteristics: sku.characteristics
+          });
+        }
       }
 
       toast.success('Товар обновлен!');
@@ -151,7 +177,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleSubmitForModeration = async (id: number) => {
+  const handleSubmitForModeration = async (id: string) => {
     try {
       await apiClient.post(`products/${id}/submit`);
       toast.success('Товар отправлен на модерацию');
@@ -161,9 +187,8 @@ const Dashboard = () => {
     }
   };
 
-  const handleDeleteProduct = async (id: number) => {
+  const handleDeleteProduct = async (id: string) => {
     if (!window.confirm('Вы уверены, что хотите удалить этот товар?')) return;
-    
     try {
       await productApi.delete(id);
       toast.success('Товар успешно удален');
@@ -171,6 +196,25 @@ const Dashboard = () => {
     } catch (err: any) {
       console.error('Delete failed:', err);
       toast.error(err.response?.data?.detail || 'Ошибка при удалении товара');
+    }
+  };
+  
+  const addSkuField = () => {
+    setSkus([...skus, { name: '', price: '', characteristics: [] }]);
+  };
+  
+  const updateSkuField = (index: number, field: string, value: string) => {
+    const updated = [...skus];
+    updated[index] = { ...updated[index], [field]: value };
+    setSkus(updated);
+  };
+  
+  const removeSkuField = (index: number) => {
+    if (skus.length > 1) {
+      const updated = skus.filter((_, i) => i !== index);
+      setSkus(updated);
+    } else {
+      toast.error('Должен быть хотя бы один вариант товара');
     }
   };
 
@@ -249,7 +293,14 @@ const Dashboard = () => {
                 <tr key={product.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'var(--transition)' }}>
                   <td style={{ padding: '1.2rem 1.5rem', fontWeight: '600' }}>{product.title}</td>
                   <td style={{ padding: '1.2rem 1.5rem' }}>
-                    <StatusBadge status={product.status} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <StatusBadge status={product.status} />
+                      {product.status === 'REJECTED' && product.rejection_reason && (
+                        <div title={product.rejection_reason} style={{ cursor: 'help', color: '#f87171' }}>
+                          <AlertCircle size={16} />
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: '1.2rem 1.5rem' }}>
                     <span style={{ fontSize: '0.9rem' }}>{product.sku_count} вариантов</span>
@@ -305,157 +356,181 @@ const Dashboard = () => {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
                 onClick={e => e.stopPropagation()}
-                style={{ background: 'var(--bg-secondary)', padding: '2.5rem', borderRadius: '24px', width: '100%', maxWidth: '600px', border: '1px solid var(--border-color)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }}
+                style={{ background: 'var(--bg-secondary)', padding: '2.5rem', borderRadius: '24px', width: '100%', maxWidth: '700px', border: '1px solid var(--border-color)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }}
               >
                 <h2 style={{ fontSize: '1.8rem', marginBottom: '2rem', fontWeight: '800' }}>
                   <span className="gradient-text">{editingId ? 'Редактировать товар' : 'Добавить товар'}</span>
                 </h2>
                 <form onSubmit={handleSubmit}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Название товара</label>
-                      <input
-                        type="text"
-                        value={newProduct.title}
-                        onChange={e => setNewProduct({ ...newProduct, title: e.target.value })}
-                        required
-                        style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'white' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Название вариации (SKU)</label>
-                      <input
-                        type="text"
-                        placeholder="напр. Черный / XL"
-                        value={newProduct.sku_name}
-                        onChange={e => setNewProduct({ ...newProduct, sku_name: e.target.value })}
-                        style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'white' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Цена ($)</label>
-                      <input
-                        type="number"
-                        value={newProduct.price}
-                        onChange={e => setNewProduct({ ...newProduct, price: e.target.value })}
-                        required
-                        style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'white' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Фото товара</label>
-                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        <label className="btn-primary" style={{
-                          flex: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.5rem',
-                          fontSize: '0.85rem',
-                          padding: '0.8rem',
-                          cursor: 'pointer',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--border-color)',
-                          boxShadow: 'none'
-                        }}>
-                          <Plus size={18} /> {isUploading ? 'Загрузка...' : 'Загрузить файл'}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileUpload}
-                            style={{ display: 'none' }}
-                            disabled={isUploading}
-                          />
-                        </label>
-                        <div style={{ flex: 1 }}>
-                          <input
-                            type="text"
-                            placeholder="или вставьте ссылку"
-                            value={newProduct.image_url}
-                            onChange={e => setNewProduct({ ...newProduct, image_url: e.target.value })}
-                            style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'white' }}
-                          />
-                        </div>
-                      </div>
-                      {newProduct.image_url && (
-                        <div style={{ marginTop: '1rem', height: '100px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                          <img
-                            src={newProduct.image_url.startsWith('http') ? newProduct.image_url : (import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1').replace('/api/v1', '') + newProduct.image_url} 
-
-                            alt="Preview"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
                   <div style={{ marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <label style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>Характеристики (Размер, Цвет и т.д.)</label>
-                      <button 
-                        type="button" 
-                        onClick={() => setNewProduct({
-                          ...newProduct, 
-                          characteristics: [...newProduct.characteristics, { name: '', value: '' }]
-                        })}
-                        style={{ color: '#6366f1', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'none', border: 'none', cursor: 'pointer' }}
-                      >
-                        <Plus size={14} /> Добавить
-                      </button>
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {newProduct.characteristics.map((char, index) => (
-                        <div key={index} style={{ display: 'flex', gap: '0.5rem' }}>
-                          <input
-                            type="text"
-                            placeholder="Название (напр. Цвет)"
-                            value={char.name}
-                            onChange={e => {
-                              const newChars = [...newProduct.characteristics];
-                              newChars[index].name = e.target.value;
-                              setNewProduct({ ...newProduct, characteristics: newChars });
-                            }}
-                            style={{ flex: 1, padding: '0.6rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'white', fontSize: '0.9rem' }}
-                          />
-                          <input
-                            type="text"
-                            placeholder="Значение (напр. Красный)"
-                            value={char.value}
-                            onChange={e => {
-                              const newChars = [...newProduct.characteristics];
-                              newChars[index].value = e.target.value;
-                              setNewProduct({ ...newProduct, characteristics: newChars });
-                            }}
-                            style={{ flex: 1, padding: '0.6rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'white', fontSize: '0.9rem' }}
-                          />
-                          <button 
-                            type="button" 
-                            onClick={() => {
-                              const newChars = newProduct.characteristics.filter((_, i) => i !== index);
-                              setNewProduct({ ...newProduct, characteristics: newChars });
-                            }}
-                            style={{ color: '#f87171', padding: '0 0.5rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Название товара</label>
+                    <input
+                      type="text"
+                      value={newProduct.title}
+                      onChange={e => setNewProduct({ ...newProduct, title: e.target.value })}
+                      required
+                      style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'white' }}
+                    />
                   </div>
-
+                  
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Фото товара</label>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <label className="btn-primary" style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.85rem',
+                        padding: '0.8rem',
+                        cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: 'none'
+                      }}>
+                        <Plus size={18} /> {isUploading ? 'Загрузка...' : 'Загрузить файл'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                          style={{ display: 'none' }}
+                          disabled={isUploading}
+                        />
+                      </label>
+                      <div style={{ flex: 1 }}>
+                        <input
+                          type="text"
+                          placeholder="или вставьте ссылку"
+                          value={newProduct.image_url}
+                          onChange={e => setNewProduct({ ...newProduct, image_url: e.target.value })}
+                          style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'white' }}
+                        />
+                      </div>
+                    </div>
+                    {newProduct.image_url && (
+                      <div style={{ marginTop: '1rem', height: '100px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                        <img
+                          src={newProduct.image_url.startsWith('http') ? newProduct.image_url : (import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1').replace('/api/v1', '') + newProduct.image_url} 
+                          alt="Preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
                   <div style={{ marginBottom: '2rem' }}>
                     <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Описание</label>
                     <textarea
                       value={newProduct.description}
                       onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}
-                      style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'white', minHeight: '100px' }}
+                      style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'white', minHeight: '80px' }}
                     />
                   </div>
+
+                  <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>Варианты (SKU)</h3>
+                      <button type="button" onClick={addSkuField} className="btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Plus size={16} /> Добавить вариант
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                      {skus.map((sku, index) => (
+                        <div key={index} style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', position: 'relative' }}>
+                          <button 
+                            type="button" 
+                            onClick={() => removeSkuField(index)}
+                            style={{ position: 'absolute', top: '10px', right: '10px', color: '#f87171', background: 'none', border: 'none', cursor: 'pointer' }}
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                          
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem', paddingRight: '2rem' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.3rem', color: 'var(--text-muted)' }}>Название (напр. XL / Чёрный)</label>
+                              <input
+                                type="text"
+                                value={sku.name}
+                                onChange={e => updateSkuField(index, 'name', e.target.value)}
+                                required
+                                style={{ width: '100%', padding: '0.6rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'white', fontSize: '0.9rem' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.3rem', color: 'var(--text-muted)' }}>Цена ($)</label>
+                              <input
+                                type="number"
+                                value={sku.price}
+                                onChange={e => updateSkuField(index, 'price', e.target.value)}
+                                required
+                                style={{ width: '100%', padding: '0.6rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'white', fontSize: '0.9rem' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Специфичные характеристики</label>
+                              <button 
+                                type="button" 
+                                onClick={() => {
+                                  const updated = [...skus];
+                                  updated[index].characteristics = [...updated[index].characteristics, { name: '', value: '' }];
+                                  setSkus(updated);
+                                }}
+                                style={{ color: '#6366f1', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.2rem', background: 'none', border: 'none', cursor: 'pointer' }}
+                              >
+                                <Plus size={14} /> Хар-ка
+                              </button>
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              {sku.characteristics.map((char, charIndex) => (
+                                <div key={charIndex} style={{ display: 'flex', gap: '0.5rem' }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Имя"
+                                    value={char.name}
+                                    onChange={e => {
+                                      const updated = [...skus];
+                                      updated[index].characteristics[charIndex].name = e.target.value;
+                                      setSkus(updated);
+                                    }}
+                                    style={{ flex: 1, padding: '0.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'white', fontSize: '0.85rem' }}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Значение"
+                                    value={char.value}
+                                    onChange={e => {
+                                      const updated = [...skus];
+                                      updated[index].characteristics[charIndex].value = e.target.value;
+                                      setSkus(updated);
+                                    }}
+                                    style={{ flex: 1, padding: '0.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'white', fontSize: '0.85rem' }}
+                                  />
+                                  <button 
+                                    type="button" 
+                                    onClick={() => {
+                                      const updated = [...skus];
+                                      updated[index].characteristics = updated[index].characteristics.filter((_, i) => i !== charIndex);
+                                      setSkus(updated);
+                                    }}
+                                    style={{ color: '#f87171', padding: '0 0.5rem', background: 'none', border: 'none', cursor: 'pointer' }}
+                                  >
+                                    &times;
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={{ display: 'flex', gap: '1rem' }}>
                     <button
                       type="button"
@@ -514,4 +589,3 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export default Dashboard;
-
