@@ -1,17 +1,15 @@
 import jwt
-import os
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from typing import Optional, TypedDict
 from fastapi import Response, Request
-from dotenv import load_dotenv
 from uuid import UUID
+from app.core.config import settings
 
-load_dotenv()
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
-JWT_ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_DAYS"))
-JWT_SECURE = os.getenv("JWT_SECURE").lower() == "true"
+JWT_SECRET_KEY = settings.JWT_SECRET_KEY
+JWT_ALGORITHM = settings.JWT_ALGORITHM
+JWT_ACCESS_TOKEN_EXPIRE_DAYS = settings.JWT_ACCESS_TOKEN_EXPIRE_DAYS
+JWT_SECURE = settings.JWT_SECURE
 
 class TokenPayload(TypedDict):
     seller_id: str

@@ -1,7 +1,8 @@
-from typing import Optional
-from sqlmodel import Field, SQLModel
+from typing import Optional, List
+from sqlmodel import Field, SQLModel, Relationship
 from uuid import UUID
 from uuid6 import uuid7
+from app.models.product import Product
 
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"
@@ -11,3 +12,5 @@ class Seller(SQLModel, table=True):
     inn: str
     kpp: Optional[str] = None
     password_hash: str
+    
+    products: List["Product"] = Relationship(back_populates="seller")
