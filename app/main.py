@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware # Новый импорт
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import os
 from sqlalchemy import text
 from fastapi.staticfiles import StaticFiles
 from .database import create_db_and_tables, engine
@@ -8,16 +9,14 @@ from app.api.v1 import auth, sku, products, invoices, upload
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure static directory exists
-    import os
     os.makedirs("app/static/uploads", exist_ok=True)
     try:
-        create_db_and_tables()
+        await create_db_and_tables()
     except Exception as e:
         raise Exception(f"Не удалось создать таблицы {e}")
 
     yield
-    engine.dispose()
+    await engine.dispose()
 
 app = FastAPI(
     title="MarketPlace by Procrastination",
@@ -41,18 +40,17 @@ app.include_router(sku.router, prefix="/api/v1/skus", tags=["SKU"])
 app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["Invoices"])
 app.include_router(upload.router, prefix="/api/v1/upload", tags=["Upload"])
 
-# Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 @app.get("/", include_in_schema=False)
-def root():
+async def root():
     return {"message": "Service is running"}
 
 @app.get("/health", include_in_schema=False)
-def health_check():
+async def health_check():
     try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
         return {"status": "ok", "db": "connected"}
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))

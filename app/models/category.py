@@ -1,12 +1,13 @@
 from uuid import UUID
 from uuid6 import uuid7
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
-from app.models.product import Product
 
+if TYPE_CHECKING:
+    from app.models.product import Product
 
 class Category(SQLModel, table=True):
     __tablename__ = "categories"

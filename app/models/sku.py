@@ -6,7 +6,7 @@ from uuid6 import uuid7
 
 if TYPE_CHECKING:
     from app.models.invoice import Stock
-from app.models.product import Product
+    from app.models.product import Product
 
 class CharacteristicValue(SQLModel, table=True):
     __tablename__ = "sku_characteristics"
@@ -31,6 +31,6 @@ class SKU(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    product: Product = Relationship(back_populates="skus")
+    product: "Product" = Relationship(back_populates="skus")
     characteristics: List[CharacteristicValue] = Relationship(back_populates="sku")
     stock: Optional["Stock"] = Relationship(back_populates="sku")

@@ -1,17 +1,14 @@
-import os
-from sqlmodel import create_engine, SQLModel
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-
-DATABASE_URL = os.getenv("DATABASE_URL")
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from app.core.config import settings
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 engine = create_async_engine(
-    DATABASE_URL,
+    settings.DATABASE_URL,
     echo=True,
     future=True
 )
 
-AsyncSessionLocal = sessionmaker(
+AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
@@ -22,12 +19,7 @@ AsyncSessionLocal = sessionmaker(
 async def create_db_and_tables():
     """Создать все таблицы при старте"""
     from sqlmodel import SQLModel
-    from app.models.product import Product
-    from app.models.category import Category
-    from app.models.sku import SKU
-    from app.models.invoice import Stock
-    from app.models.seller import Seller
-    from app.models.sku import CharacteristicValue
+    from app import models
     
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)

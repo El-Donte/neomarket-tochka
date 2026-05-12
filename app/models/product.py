@@ -5,10 +5,10 @@ from uuid import UUID
 from uuid6 import uuid7
 
 from app.models.category import Category
-from app.models.seller import Seller
 
 if TYPE_CHECKING:
     from app.models.sku import SKU
+    from app.models.seller import Seller
 
 class Product(SQLModel, table=True):
     __tablename__ = "products"
@@ -26,6 +26,6 @@ class Product(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
-    seller: Seller = Relationship(back_populates="products")
+    seller: "Seller" = Relationship(back_populates="products")
     category: Optional[Category] = Relationship(back_populates="products")
     skus: List["SKU"] = Relationship(back_populates="product")
