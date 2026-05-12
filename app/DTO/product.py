@@ -13,7 +13,7 @@ class ProductCreate(SQLModel):
     title: str
     image_url: Optional[str] = None
     description: Optional[str] = None
-    category_id: Optional[int] = None
+    category_id: Optional[UUID] = None
 
 class ProductRead(SQLModel):
     id: UUID

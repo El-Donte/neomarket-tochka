@@ -10,17 +10,19 @@ from app.api.v1.dependencies.security import hash_password, set_auth_cookie, ver
 router = APIRouter()
 
 @router.post("/register", response_model=SellerRead)
-async def register_seller(seller: SellerCreate, response: Response, session: AsyncSession = Depends(get_session)):
-    """
-    Регистрация продавца. 
-    При успехе возвращает данные продавца и устанавливает JWT токен в cookie.
-    """
-    statement = (select(Seller).where((Seller.inn == seller.inn)))
-    existing_seller = await session.exec(statement).first()
+async def register_seller(
+    seller: SellerCreate,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+):
+    statement = select(Seller).where(Seller.inn == seller.inn)
+
+    result = await session.exec(statement)
+    existing_seller = result.first()
 
     if existing_seller:
         raise HTTPException(status_code=409, detail="Пользователь с таким ИНН уже существует")
-    
+
     db_seller = Seller(
         name=seller.name,
         password_hash=hash_password(seller.password),
@@ -28,14 +30,15 @@ async def register_seller(seller: SellerCreate, response: Response, session: Asy
         inn=seller.inn,
         kpp=seller.kpp
     )
+
     session.add(db_seller)
 
     try:
-        session.commit()
+        await session.commit()
     except Exception:
-        session.rollback()
+        await session.rollback()
         raise
-    
+
     await session.refresh(db_seller)
 
     set_auth_cookie(response, seller_id=db_seller.id)
@@ -52,7 +55,8 @@ async def login_seller(
     При успехе возвращает данные продавца и устанавливает JWT токен в cookie.
     """
     statement = (select(Seller).where((Seller.inn == seller.inn)))
-    existing_seller = await session.exec(statement).first()
+    result = await session.exec(statement)
+    existing_seller = result.first()
 
     if not existing_seller:
         raise HTTPException(status_code=401, detail="Неверный ИНН или пароль")

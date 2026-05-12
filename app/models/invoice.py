@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey
 from uuid import UUID
 from uuid6 import uuid7
 
@@ -14,8 +15,8 @@ class Invoice(SQLModel, table=True):
     number: Optional[str] = None
     status: str = Field(default="CREATED")
     comment: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
 
     items: List["InvoiceItem"] = Relationship(back_populates="invoice")
 
@@ -37,6 +38,6 @@ class Stock(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     sku_id: UUID = Field(foreign_key="skus.id", unique=True)
     quantity: int = Field(default=0)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
 
     sku: Optional["SKU"] = Relationship(back_populates="stock")
