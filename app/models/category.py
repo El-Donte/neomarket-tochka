@@ -13,7 +13,6 @@ class Category(SQLModel, table=True):
     __tablename__ = "categories"
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     name: str
-    slug: str = Field(unique=True, index=True)
     description: Optional[str] = None
     parent_id: Optional[UUID] = Field(default=None, foreign_key="categories.id")
     image_url: Optional[str] = None
