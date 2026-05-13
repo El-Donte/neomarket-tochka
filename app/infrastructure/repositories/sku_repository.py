@@ -1,11 +1,12 @@
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 
 from app.models.sku import SKU, CharacteristicValue
 from app.models.invoice import Stock, InvoiceItem
 from app.models.product import Product
+from app.models.image import Image
 
 
 class SKURepository:
@@ -24,6 +25,16 @@ class SKURepository:
             .where(Product.seller_id == seller_id)
         )
         return result.first()
+    
+    async def get_skus_by_product(
+        self, product_id: UUID
+    ) -> List[SKU]:
+        result = await self.session.exec(
+            select(SKU)
+            .where(SKU.product_id == product_id)
+        )
+
+        return list(result.all())
 
     # ---------- SKU ----------
 
@@ -32,11 +43,12 @@ class SKURepository:
     ) -> Optional[SKU]:
         result = await self.session.exec(
             select(SKU)
+            .join(Product, SKU.product_id == Product.id)
             .where(SKU.id == sku_id)
-            .where(SKU.seller_id == seller_id)
+            .where(Product.seller_id == seller_id)
         )
-        return result.first()
-
+        return result.unique().first()
+    
     async def create_sku(self, sku: SKU) -> SKU:
         self.session.add(sku)
         await self.session.flush()
@@ -50,7 +62,6 @@ class SKURepository:
 
     async def delete_sku(self, sku: SKU):
         await self.session.delete(sku)
-
     # ---------- STOCK ----------
 
     async def get_stock(self, sku_id: UUID) -> Optional[Stock]:
@@ -92,3 +103,32 @@ class SKURepository:
 
     async def rollback(self):
         await self.session.rollback()
+
+    # ----------  Images -------------
+
+    async def get_image_for_seller(
+        self, image_id: UUID, seller_id: UUID
+    ) -> Optional[Image]:
+        """Получить изображение, только если его SKU → Product принадлежит продавцу"""
+        result = await self.session.exec(
+            select(Image)
+            .join(SKU, Image.sku_id == SKU.id)
+            .join(Product, SKU.product_id == Product.id)
+            .where(Image.id == image_id)
+            .where(Product.seller_id == seller_id)
+        )
+        return result.first()
+
+    async def add_image(self, image: Image) -> Image:
+        self.session.add(image)
+        await self.session.flush()
+        return image
+
+    async def update_image(self, image: Image) -> Image:
+        # Объект уже отслеживается, просто сливаем изменения
+        self.session.add(image)
+        await self.session.flush()
+        return image
+
+    async def delete_image(self, image: Image):
+        await self.session.delete(image)

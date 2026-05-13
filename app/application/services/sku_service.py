@@ -1,11 +1,14 @@
 from uuid import UUID
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
+from typing import List
 
 from app.models.sku import SKU, CharacteristicValue
 from app.models.invoice import Stock
 from app.DTO.sku import SKUCreate, SKUUpdate
 from app.infrastructure.repositories.sku_repository import SKURepository
+from app.models.image import Image
+from app.DTO.image import ImageCreate, ImageUpdate
 
 
 class SKUService:
@@ -126,3 +129,48 @@ class SKUService:
             }
             for sku, stock, product_title in results
         ]
+    
+    async def get_skus_by_product(self, product_id: UUID, seller_id: UUID) -> List[SKU]:
+        product = await self.repo.get_product_for_seller(product_id, seller_id)
+
+        if not product:
+            raise HTTPException(
+                status_code=404,
+                detail="Товар не найден или не принадлежит вам"
+            )
+        
+        return await self.repo.get_skus_by_product(product_id)
+    
+    async def add_sku_image(
+        self, sku_id: UUID, image_in: ImageCreate, seller_id: UUID
+    ) -> Image:
+        sku = await self.repo.get_sku_for_seller(sku_id, seller_id)
+        if not sku:
+            raise HTTPException(status_code=404, detail="SKU не найден")
+
+        db_image = Image(
+            sku_id=sku_id,
+            url=image_in.url,
+            order=image_in.order or 0,
+        )
+        return await self.repo.add_image(db_image)
+
+    async def update_sku_image(
+        self, image_id: UUID, image_in: ImageUpdate, seller_id: UUID
+    ) -> Image:
+        db_image = await self.repo.get_image_for_seller(image_id, seller_id)
+        if not db_image:
+            raise HTTPException(status_code=404, detail="Изображение не найдено")
+
+        update_data = image_in.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_image, key, value)
+
+        return await self.repo.update_image(db_image)
+
+    async def delete_sku_image(self, image_id: UUID, seller_id: UUID):
+        db_image = await self.repo.get_image_for_seller(image_id, seller_id)
+        if not db_image:
+            raise HTTPException(status_code=404, detail="Изображение не найдено")
+
+        await self.repo.delete_image(db_image)

@@ -53,16 +53,6 @@ async def get_product(
     return await service.get_product(id, seller_id)
 
 
-@router.put("/{id}", response_model=ProductRead)
-async def update_product(
-    id: UUID,
-    product_in: ProductCreate,
-    seller_id: UUID = Depends(get_current_seller),
-    service: ProductService = Depends(get_service),
-):
-    return await service.update_product(id, product_in, seller_id)
-
-
 @router.patch("/{id}", response_model=ProductRead)
 async def update_product_partial(
     id: UUID,
