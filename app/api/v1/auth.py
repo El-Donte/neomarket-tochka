@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from anyio.to_thread import run_sync
 from app.models.seller import Seller
-from app.DTO.seller import SellerCreate, SellerRead, SellerLogin
+from app.DTO.seller import SellerCreate, SellerLogin, SellerRead
 from app.api.v1.dependencies.security import hash_password, set_auth_cookies, verify_password, decode_token
 
 router = APIRouter()
@@ -26,11 +26,12 @@ async def register_seller(
     db_seller = Seller(
         first_name=seller.first_name,
         password_hash=hash_password(seller.password),
-        second_name=seller.second_name,
+        last_name=seller.last_name,
         inn=seller.inn,
         middle_name=seller.middle_name,
         company_name=seller.company_name,
-        phone=seller.phone
+        phone=seller.phone,
+        email=seller.email
     )
 
     session.add(db_seller)
