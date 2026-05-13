@@ -14,12 +14,12 @@ async def get_current_seller(
     Dependency: получает текущего авторизованного продавца.
     При успехе возвращает его ID.
     """
-    token = get_token_from_cookie(request)
-    if not token:
-        raise HTTPException(status_code=401, detail="Продавец не найден")
+    access_token = get_token_from_cookie(request)
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Не авторизованный пользователь")
     
-    seller_id = decode_token(token)
-    if not seller_id:
+    seller_id = decode_token(access_token, expected_type="access")
+    if seller_id is None:
         raise HTTPException(status_code=401, detail="Неверный или просроченный токен")
 
     seller = await session.get(Seller, seller_id)

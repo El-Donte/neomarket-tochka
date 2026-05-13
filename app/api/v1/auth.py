@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from anyio.to_thread import run_sync
 from app.models.seller import Seller
 from app.DTO.seller import SellerCreate, SellerRead, SellerLogin
-from app.api.v1.dependencies.security import hash_password, set_auth_cookie, verify_password, delete_auth_cookie
+from app.api.v1.dependencies.security import hash_password, set_auth_cookies, verify_password, decode_token
 
 router = APIRouter()
 
-@router.post("/register", response_model=SellerRead)
+@router.post("/register", response_model=SellerRead)    
 async def register_seller(
     seller: SellerCreate,
     response: Response,
@@ -24,11 +24,13 @@ async def register_seller(
         raise HTTPException(status_code=409, detail="Пользователь с таким ИНН уже существует")
 
     db_seller = Seller(
-        name=seller.name,
+        first_name=seller.first_name,
         password_hash=hash_password(seller.password),
-        legal_name=seller.legal_name,
+        second_name=seller.second_name,
         inn=seller.inn,
-        kpp=seller.kpp
+        middle_name=seller.middle_name,
+        company_name=seller.company_name,
+        phone=seller.phone
     )
 
     session.add(db_seller)
@@ -41,7 +43,7 @@ async def register_seller(
 
     await session.refresh(db_seller)
 
-    set_auth_cookie(response, seller_id=db_seller.id)
+    set_auth_cookies(response, seller_id=db_seller.id)
     return db_seller
 
 @router.post("/login", response_model=SellerRead)
@@ -69,7 +71,7 @@ async def login_seller(
     if not is_valid:
         raise HTTPException(status_code=401, detail="Неверный ИНН или пароль")
     
-    set_auth_cookie(response, seller_id=existing_seller.id)
+    set_auth_cookies(response, seller_id=existing_seller.id)
     return existing_seller
 
 @router.post("/logout", status_code=204)
@@ -78,4 +80,18 @@ async def logout_seller(response: Response):
     Выход из аккаунта продавца.
     Удаляет куку с JWT токеном.
     """
-    delete_auth_cookie(response)
+
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+
+@router.post("/refresh")
+async def refresh_token(request: Request, response: Response):
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
+
+    seller_id = decode_token(refresh_token, expected_type="refresh")
+    if seller_id is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    
+    set_auth_cookies(response, seller_id)

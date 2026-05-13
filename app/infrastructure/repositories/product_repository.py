@@ -14,8 +14,6 @@ class ProductRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    # ---------- PRODUCT ----------
-
     async def create(self, product: Product) -> Product:
         self.session.add(product)
         await self.session.commit()
@@ -67,8 +65,6 @@ class ProductRepository:
         await self.session.refresh(product)
         return product
 
-    # ---------- SKU ----------
-
     async def get_sku(self, sku_id: UUID) -> Optional[SKU]:
         return await self.session.get(SKU, sku_id)
 
@@ -86,8 +82,6 @@ class ProductRepository:
     async def delete_sku(self, sku: SKU) -> None:
         await self.session.delete(sku)
 
-    # ---------- STOCK ----------
-
     async def get_stock(self, sku_id: UUID) -> Optional[Stock]:
         result = await self.session.exec(
             select(Stock).where(Stock.sku_id == sku_id)
@@ -100,15 +94,11 @@ class ProductRepository:
     async def delete_stock(self, stock: Stock) -> None:
         await self.session.delete(stock)
 
-    # ---------- INVOICE ITEM ----------
-
     async def get_invoice_item_by_sku(self, sku_id: UUID) -> Optional[InvoiceItem]:
         result = await self.session.exec(
             select(InvoiceItem).where(InvoiceItem.sku_id == sku_id)
         )
         return result.first()
-
-    # ---------- TRANSACTIONS ----------
 
     async def commit(self) -> None:
         await self.session.commit()

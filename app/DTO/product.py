@@ -18,7 +18,7 @@ class ProductCreate(SQLModel):
 class ProductRead(SQLModel):
     id: UUID
     seller_id: UUID
-    category_id: Optional[int]
+    category_id: Optional[UUID]
     title: str
     image_url: Optional[str] = None
     description: Optional[str]
@@ -30,7 +30,7 @@ class ProductRead(SQLModel):
 class ProductUpdate(SQLModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    category_id: Optional[int] = None
+    category_id: Optional[UUID] = None
 
 class ProductDashboardItem(SQLModel):
     id: UUID
