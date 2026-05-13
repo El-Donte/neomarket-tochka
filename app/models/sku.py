@@ -8,6 +8,7 @@ from uuid6 import uuid7
 if TYPE_CHECKING:
     from app.models.invoice import Stock, InvoiceItem
     from app.models.product import Product
+    from app.models.image import Image
 
 class CharacteristicValue(SQLModel, table=True):
     __tablename__ = "sku_characteristics"
@@ -26,7 +27,6 @@ class SKU(SQLModel, table=True):
     name: str
     price: int  # В копейках/центах
     old_price: Optional[int] = Field(default=None)
-    image_url: Optional[str] = None
     status: str = Field(default="ACTIVE")
     
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
@@ -36,3 +36,4 @@ class SKU(SQLModel, table=True):
     characteristics: List[CharacteristicValue] = Relationship(back_populates="sku")
     stock: Optional["Stock"] = Relationship(back_populates="sku")
     invoice_items: List["InvoiceItem"] = Relationship(back_populates="sku")
+    images: List["Image"] = Relationship(back_populates="sku", sa_relationship_kwargs={"cascade": "all, delete-orphan"})

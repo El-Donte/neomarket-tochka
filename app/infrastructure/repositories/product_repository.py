@@ -7,6 +7,7 @@ from typing import Optional
 from app.models.product import Product
 from app.models.sku import SKU, CharacteristicValue
 from app.models.invoice import Stock, InvoiceItem
+from app.models.image import Image
 
 
 class ProductRepository:
@@ -27,6 +28,9 @@ class ProductRepository:
             .where(Product.seller_id == seller_id)
         )
         return result.first()
+    
+    async def delete_product(self, product: Product) -> None:
+        await self.session.delete(product)
 
     async def get_by_id_with_skus(self, product_id: UUID, seller_id: UUID) -> Optional[Product]:
         result = await self.session.exec(
@@ -99,6 +103,20 @@ class ProductRepository:
             select(InvoiceItem).where(InvoiceItem.sku_id == sku_id)
         )
         return result.first()
+
+    async def get_product_image(self, image_id: UUID) -> Optional[Image]:
+        return await self.session.get(Image, image_id)
+
+
+    async def save_product_image(self, image: Image) -> Image:
+        self.session.add(image)
+        await self.session.commit()
+        await self.session.refresh(image)
+        return image
+
+
+    async def delete_product_image(self, image: Image) -> None:
+        await self.session.delete(image)
 
     async def commit(self) -> None:
         await self.session.commit()

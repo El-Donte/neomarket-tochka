@@ -9,6 +9,7 @@ from app.DTO.product import ProductCreate, ProductRead, ProductUpdate, ProductDa
 from app.DTO.sku import SKURead, SKUCreate
 from app.infrastructure.repositories.product_repository import ProductRepository
 from app.application.services.product_service import ProductService
+from app.DTO.image import ImageCreate, ImageResponse, ImageUpdate
 
 router = APIRouter()
 
@@ -71,6 +72,14 @@ async def update_product_partial(
 ):
     return await service.update_product_partial(id, product_in, seller_id)
 
+@router.delete("/{id}", status_code=204)
+async def delete_product(
+    id: UUID,
+    seller_id: UUID = Depends(get_current_seller),
+    service: ProductService = Depends(get_service),
+):
+    await service.delete_product(id, seller_id)
+
 
 @router.post("/{id}/submit", response_model=ProductRead)
 async def submit_product_for_moderation(
@@ -110,3 +119,29 @@ async def update_product_sku(
     service: ProductService = Depends(get_service),
 ):
     return await service.update_sku(sku_id, sku_in, seller_id)
+
+@router.post("/{id}/images", response_model=ImageResponse, status_code=201)
+async def add_product_image(
+    id: UUID,
+    image_in: ImageCreate,
+    seller_id: UUID = Depends(get_current_seller),
+    service: ProductService = Depends(get_service),
+):
+    return await service.add_product_image(id, image_in, seller_id)
+
+@router.patch("/images/{image_id}", response_model=ImageResponse)
+async def update_product_image(
+    image_id: UUID,
+    image_in: ImageUpdate,
+    seller_id: UUID = Depends(get_current_seller),
+    service: ProductService = Depends(get_service),
+):
+    return await service.update_product_image(image_id, image_in, seller_id)
+
+@router.delete("/images/{image_id}", status_code=204)
+async def delete_product_image(
+    image_id: UUID,
+    seller_id: UUID = Depends(get_current_seller),
+    service: ProductService = Depends(get_service),
+):
+    await service.delete_product_image(image_id, seller_id)

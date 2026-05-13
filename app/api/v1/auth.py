@@ -9,7 +9,7 @@ from app.api.v1.dependencies.security import hash_password, set_auth_cookies, ve
 
 router = APIRouter()
 
-@router.post("/register", response_model=SellerRead)    
+@router.post("/register", response_model=SellerRead, status_code=201)    
 async def register_seller(
     seller: SellerCreate,
     response: Response,

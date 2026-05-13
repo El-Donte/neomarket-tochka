@@ -9,6 +9,8 @@ from app.models.invoice import Stock
 from app.DTO.product import ProductCreate, ProductUpdate, ProductDashboardItem
 from app.DTO.sku import SKUCreate
 from app.infrastructure.repositories.product_repository import ProductRepository
+from app.models.image import Image
+from app.DTO.image import ImageCreate, ImageResponse, ImageUpdate
 
 
 class ProductService:
@@ -87,6 +89,14 @@ class ProductService:
             )
             for p in products
         ]
+    
+    async def delete_product(self, product_id: UUID, seller_id: UUID) -> None:
+        db_product = await self.repo.get_by_id(product_id, seller_id)
+        if not db_product:
+            raise HTTPException(status_code=404, detail="Товар не найден")
+
+        await self.repo.delete_product(db_product)
+        await self.repo.commit()
 
     async def update_product_partial(
         self,
@@ -216,3 +226,60 @@ class ProductService:
         db_sku.updated_at = datetime.now(timezone.utc)
 
         return await self.repo.save_sku(db_sku)
+    
+    async def add_product_image(
+        self,
+        product_id: UUID,
+        image_in: ImageCreate,
+        seller_id: UUID,
+    ) -> Image:
+
+        db_product = await self.repo.get_by_id(product_id, seller_id)
+        if not db_product:
+            raise HTTPException(status_code=404, detail="Товар не найден")
+
+        image = Image(
+            product_id=product_id,
+            url=image_in.url,
+            sort_order=image_in.sort_order,
+        )
+
+        return await self.repo.save_product_image(image)
+    
+    async def update_product_image(
+        self,
+        image_id: UUID,
+        image_in: ImageUpdate,
+        seller_id: UUID,
+    ) -> Image:
+
+        image = await self.repo.get_product_image(image_id)
+        if not image:
+            raise HTTPException(status_code=404, detail="Изображение не найдено")
+
+        product = await self.repo.get_by_id(image.product_id, seller_id)
+        if not product:
+            raise HTTPException(status_code=403, detail="Нет доступа к изображению")
+
+        update_data = image_in.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(image, key, value)
+
+        return await self.repo.save_product_image(image)
+    
+    async def delete_product_image(
+        self,
+        image_id: UUID,
+        seller_id: UUID,
+    ) -> None:
+
+        image = await self.repo.get_product_image(image_id)
+        if not image:
+            raise HTTPException(status_code=404, detail="Изображение не найдено")
+
+        product = await self.repo.get_by_id(image.product_id, seller_id)
+        if not product:
+            raise HTTPException(status_code=403, detail="Нет доступа")
+
+        await self.repo.delete_product_image(image)
+        await self.repo.commit()

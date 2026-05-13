@@ -3,6 +3,8 @@ from typing import List, Optional
 from sqlmodel import SQLModel
 from uuid import UUID
 
+from app.DTO.image import ImageResponse, ImageCreate
+
 class CharacteristicCreate(SQLModel):
     """Данные для создания характеристики SKU"""
     name: str
@@ -24,7 +26,7 @@ class SKUCreate(SQLModel):
     product_id: UUID
     name: str
     price: int
-    image_url: Optional[str] = None
+    images: Optional[list[ImageCreate]] = []
     characteristics: Optional[List[CharacteristicCreate]] = None
 
 class SKUUpdate(SQLModel):
@@ -38,7 +40,7 @@ class SKURead(SQLModel):
     seller_id: UUID
     name: str
     price: int
-    image_url: Optional[str] = None
+    images: Optional[list[ImageResponse]] = []
     status: str
     created_at: datetime
     updated_at: datetime

@@ -4,6 +4,8 @@ from sqlmodel import SQLModel
 from app.DTO.sku import SKURead
 from uuid import UUID
 
+from app.DTO.image import ImageCreate, ImageResponse
+
 class ProductCreate(SQLModel):
     """
     Данные для создания товара.
@@ -11,7 +13,7 @@ class ProductCreate(SQLModel):
     seller_id НЕ передаётся — берётся из токена авторизации.
     """
     title: str
-    image_url: Optional[str] = None
+    images: Optional[list[ImageCreate]] = []
     description: Optional[str] = None
     category_id: Optional[UUID] = None
 
@@ -20,7 +22,7 @@ class ProductRead(SQLModel):
     seller_id: UUID
     category_id: Optional[UUID]
     title: str
-    image_url: Optional[str] = None
+    images: Optional[list[ImageResponse]] = []
     description: Optional[str]
     status: str
     created_at: datetime
@@ -35,7 +37,7 @@ class ProductUpdate(SQLModel):
 class ProductDashboardItem(SQLModel):
     id: UUID
     title: str
-    image_url: Optional[str] = None
+    images: Optional[list[ImageResponse]] = []
     status: str
     sku_count: int = 0
     published_sku_count: int = 0
