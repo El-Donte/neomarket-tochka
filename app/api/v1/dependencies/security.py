@@ -8,7 +8,7 @@ from app.core.config import settings
 
 JWT_SECRET_KEY = settings.JWT_SECRET_KEY
 JWT_ALGORITHM = settings.JWT_ALGORITHM
-JWT_ACCESS_TOKEN_EXPIRE_DAYS = settings.JWT_ACCESS_TOKEN_EXPIRE_DAYS
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = settings.JWT_ACCESS_TOKEN_EXPIRE_DAYS
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 JWT_SECURE = settings.JWT_SECURE
 
@@ -52,8 +52,20 @@ def create_refresh_token(seller_id: UUID) -> str:
     return create_token(
         seller_id,
         "refresh",
-        timedelta(days=JWT_ACCESS_TOKEN_EXPIRE_DAYS)
+        timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     )
+
+def create_auth_tokens(seller_id: UUID) -> dict:
+    access_token = create_access_token(seller_id)
+    refresh_token= create_refresh_token(seller_id)
+
+    return {
+        "user_id": seller_id,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "Bearer",
+        "expires_in": JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
 
 def get_token_from_cookie(request: Request) -> Optional[str]:
     """
@@ -96,5 +108,5 @@ def set_auth_cookies(response: Response, seller_id: UUID):
         httponly=True,
         secure=JWT_SECURE,
         samesite="lax",
-        max_age=JWT_ACCESS_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        max_age=JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )

@@ -14,7 +14,7 @@ class SellerCreate(SQLModel):
     inn: str
     
 class SellerLogin(SQLModel):
-    inn: str
+    email: str
     password: str
 
 class SellerResponse(SQLModel):
@@ -25,6 +25,7 @@ class SellerResponse(SQLModel):
     middle_name: Optional[str] = None
     company_name: str
     phone: Optional[str] = None
+    inn: str
     created_at: datetime
     updated_at: datetime
 
@@ -35,11 +36,12 @@ class SellerUpdate(SQLModel):
     company_name: Optional[str] = None
     phone: Optional[str] = None
 
-class SellerRead(SQLModel):
-    id: UUID
-    first_name: str
-    last_name: str
-    middle_name: Optional[str] = None
-    company_name: str
-    phone: Optional[str] = None
-    inn: str
+class TokenResponse(SQLModel):
+    user_id: UUID
+    access_token: str
+    refresh_token: str
+    token_type: str
+    expires_in: int
+
+class RefreshRequest(SQLModel):
+    refresh_token: str
