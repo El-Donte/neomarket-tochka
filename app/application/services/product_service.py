@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import HTTPException, status
 
-from app.models.product import Product
+from app.models.product import Product, ProductStatus
 from app.models.sku import SKU, CharacteristicValue
 from app.models.invoice import Stock
 from app.DTO.product import ProductCreate, ProductUpdate, ProductDashboardItem
@@ -19,14 +19,16 @@ class ProductService:
         self.repo = repo
 
     async def create_product(self, product_in: ProductCreate, seller_id: UUID) -> Product:
-        db_product = Product.model_validate(
-            product_in,
-            update={"seller_id": seller_id, "status": "CREATED"},
+        new_product = Product(
+            **product_in.model_dump(),
+            seller_id=seller_id,
+            status=ProductStatus.CREATED,
+            is_deleted=False,
         )
-        return await self.repo.create(db_product)
+        return await self.repo.create(new_product)
 
-    async def get_product(self, product_id: UUID, seller_id: UUID) -> Product:
-        product = await self.repo.get_by_id_with_skus(product_id, seller_id)
+    async def get_product(self, product_id: UUID) -> Product:
+        product = await self.repo.get_by_id(product_id)
         if not product:
             raise HTTPException(status_code=404, detail="Товар не найден")
         return product
@@ -34,24 +36,45 @@ class ProductService:
     async def update_product(
         self,
         product_id: UUID,
-        product_in: ProductCreate,
+        product_in: ProductUpdate,
         seller_id: UUID,
     ) -> Product:
-        db_product = await self.repo.get_by_id(product_id, seller_id)
-        if not db_product:
-            raise HTTPException(status_code=404, detail="Товар не найден")
+        product = await self.get_product(product_id)
 
-        product_data = product_in.model_dump(exclude_unset=True)
-        for key, value in product_data.items():
-            setattr(db_product, key, value)
+        if product.seller_id != seller_id:
+            raise HTTPException(status_code=403)
 
-        db_product.status = "ON_MODERATION"
-        db_product.updated_at = datetime.now(timezone.utc)
+        if product.status == ProductStatus.HARD_BLOCKED:
+            raise HTTPException(status_code=403, detail="Product is hard blocked and cannot be edited")
+        
+        data = product_in.model_dump(exclude_unset=True)
 
-        return await self.repo.save(db_product)
+        if product.status in [ProductStatus.MODERATED, ProductStatus.BLOCKED]:
+            product.status = ProductStatus.ON_MODERATION
 
-    async def list_products(self, seller_id: UUID) -> list[Product]:
-        return await self.repo.list_by_seller(seller_id)
+        for key, value in data.items():
+            setattr(product, key, value)
+
+        return await self.repo.update(product)
+    
+    async def delete_product(self, product_id: UUID, seller_id: UUID) -> None:
+        product = await self.get_product(product_id)
+        if product.seller_id != seller_id:
+            raise HTTPException(status_code=403)
+        
+        product.is_deleted = True
+        await self.repo.update(product)
+
+    async def list_my_products(
+        self,
+        seller_id: UUID,
+        limit: int,
+        offset: int,
+        status_filter: Optional[str],
+        include_deleted: bool,
+    ):
+        items, total = await self.repo.get_paginated(seller_id, limit, offset, status_filter, include_deleted)
+        return {"items": items, "total_count": total, "limit": limit, "offset": offset}
 
     async def get_dashboard(
         self,
@@ -89,32 +112,6 @@ class ProductService:
             )
             for p in products
         ]
-    
-    async def delete_product(self, product_id: UUID, seller_id: UUID) -> None:
-        db_product = await self.repo.get_by_id(product_id, seller_id)
-        if not db_product:
-            raise HTTPException(status_code=404, detail="Товар не найден")
-
-        await self.repo.delete_product(db_product)
-        await self.repo.commit()
-
-    async def update_product_partial(
-        self,
-        product_id: UUID,
-        product_in: ProductUpdate,
-        seller_id: UUID,
-    ) -> Product:
-        db_product = await self.repo.get_by_id_with_skus(product_id, seller_id)
-        if not db_product:
-            raise HTTPException(status_code=404, detail="Товар не найден")
-
-        product_data = product_in.model_dump(exclude_unset=True)
-        for key, value in product_data.items():
-            setattr(db_product, key, value)
-
-        db_product.updated_at = datetime.now(timezone.utc)
-
-        return await self.repo.save(db_product)
 
     async def submit_for_moderation(self, product_id: UUID, seller_id: UUID) -> Product:
         db_product = await self.repo.get_by_id_with_skus(product_id, seller_id)
@@ -233,18 +230,16 @@ class ProductService:
         image_in: ImageCreate,
         seller_id: UUID,
     ) -> Image:
+        product = await self.get_product(product_id)
+        if product.seller_id != seller_id:
+            raise HTTPException(status_code=403)
 
-        db_product = await self.repo.get_by_id(product_id, seller_id)
-        if not db_product:
-            raise HTTPException(status_code=404, detail="Товар не найден")
-
-        image = Image(
+        new_image = Image(
             product_id=product_id,
-            url=image_in.url,
-            sort_order=image_in.sort_order,
+            **image_in.model_dump()
         )
 
-        return await self.repo.save_product_image(image)
+        return await self.repo.save_product_image(new_image)
     
     async def update_product_image(
         self,
@@ -257,15 +252,14 @@ class ProductService:
         if not image:
             raise HTTPException(status_code=404, detail="Изображение не найдено")
 
-        product = await self.repo.get_by_id(image.product_id, seller_id)
-        if not product:
-            raise HTTPException(status_code=403, detail="Нет доступа к изображению")
+        product = await self.get_product(image.product_id)
+        if product.seller_id != seller_id:
+            raise HTTPException(status_code=403)
 
-        update_data = image_in.model_dump(exclude_unset=True)
-        for key, value in update_data.items():
+        for key, value in image_in.model_dump(exclude_unset=True).items():
             setattr(image, key, value)
 
-        return await self.repo.save_product_image(image)
+        return await self.repo.update(image)
     
     async def delete_product_image(
         self,
@@ -277,9 +271,8 @@ class ProductService:
         if not image:
             raise HTTPException(status_code=404, detail="Изображение не найдено")
 
-        product = await self.repo.get_by_id(image.product_id, seller_id)
-        if not product:
-            raise HTTPException(status_code=403, detail="Нет доступа")
+        product = await self.get_product(image.product_id)
+        if product.seller_id != seller_id:
+            raise HTTPException(status_code=403)
 
         await self.repo.delete_product_image(image)
-        await self.repo.commit()

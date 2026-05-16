@@ -4,6 +4,8 @@ from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey
 from uuid import UUID
 from uuid6 import uuid7
+from enum import StrEnum
+from sqlalchemy import Enum as SAEnum
 
 from app.models.category import Category
 
@@ -12,6 +14,13 @@ if TYPE_CHECKING:
     from app.models.seller import Seller
     from app.models.image import Image
 
+class ProductStatus(StrEnum):
+    CREATED = "CREATED"
+    ON_MODERATION = "ON_MODERATION"
+    MODERATED = "MODERATED"
+    BLOCKED = "BLOCKED"
+    HARD_BLOCKED = "HARD_BLOCKED"
+
 class Product(SQLModel, table=True):
     __tablename__ = "products"
     id: UUID = Field(default_factory=uuid7, primary_key=True)
@@ -19,9 +28,21 @@ class Product(SQLModel, table=True):
     category_id: Optional[UUID] = Field(default=None, foreign_key="categories.id")
     title: str
     description: Optional[str] = None
-    status: str = Field(default="CREATED")
+    status: ProductStatus = Field(
+    sa_column=Column(
+        SAEnum(
+            ProductStatus,
+            native_enum=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
+        nullable=False,
+        default=ProductStatus.CREATED
+    )
+)
     rating: float = Field(default=0.0)
     orders_count: int = Field(default=0)
+    is_deleted: bool = Field(default=False)
+    slug: str = Field(index=True, unique=True)
     
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))

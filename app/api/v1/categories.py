@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from uuid import UUID
@@ -17,6 +18,7 @@ from app.api.v1.dependencies.seller_depends import get_current_seller
 
 
 router = APIRouter()
+security = HTTPBearer()
 
 
 def get_category_service(
@@ -36,6 +38,7 @@ async def list_categories(
     "/",
     response_model=CategoryResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(security)]
 )
 async def create_category(
     data: CategoryCreate,
@@ -61,6 +64,7 @@ async def get_category(
 @router.patch(
     "/{category_id}",
     response_model=CategoryWithChildrenResponse,
+    dependencies=[Depends(security)]
 )
 async def update_category(
     category_id: UUID,
@@ -73,6 +77,7 @@ async def update_category(
 @router.delete(
     "/{category_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(security)]
 )
 async def delete_category(
     category_id: UUID,

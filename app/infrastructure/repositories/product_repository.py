@@ -1,8 +1,9 @@
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from uuid import UUID
-from typing import Optional
+from typing import Optional, Sequence
 
 from app.models.product import Product
 from app.models.sku import SKU, CharacteristicValue
@@ -15,22 +16,46 @@ class ProductRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def get_paginated(
+        self, 
+        seller_id: UUID, 
+        limit: int, 
+        offset: int, 
+        status: Optional[str] = None, 
+        include_deleted: bool = False
+    ) -> (Sequence[Product], int):
+        query = select(Product).where(Product.seller_id == seller_id)
+        
+        if not include_deleted:
+            query = query.where(Product.is_deleted == False)
+        if status:
+            query = query.where(Product.status == status)
+
+        count_query = select(func.count()).select_from(query.subquery())
+        total = await self.session.exec(count_query)
+
+        query = query.limit(limit).offset(offset).options(selectinload(Product.images))
+        result = await self.session.exec(query)
+        return result.all(), total.one()
+
     async def create(self, product: Product) -> Product:
         self.session.add(product)
         await self.session.commit()
-        await self.session.refresh(product)
-        return product
 
-    async def get_by_id(self, product_id: UUID, seller_id: UUID) -> Optional[Product]:
+        return await self.get_by_id(product.id)
+
+    async def get_by_id(self, product_id: UUID) -> Optional[Product]:
         result = await self.session.exec(
             select(Product)
             .where(Product.id == product_id)
-            .where(Product.seller_id == seller_id)
+            .options(selectinload(Product.images), selectinload(Product.skus))
         )
         return result.first()
     
-    async def delete_product(self, product: Product) -> None:
-        await self.session.delete(product)
+    async def update(self, product: Product) -> Product:
+        await self.session.commit()
+        
+        return await self.get_by_id(product.id)
 
     async def get_by_id_with_skus(self, product_id: UUID, seller_id: UUID) -> Optional[Product]:
         result = await self.session.exec(
@@ -66,8 +91,8 @@ class ProductRepository:
     async def save(self, product: Product) -> Product:
         self.session.add(product)
         await self.session.commit()
-        await self.session.refresh(product)
-        return product
+
+        return await self.get_by_id(product.id)
 
     async def get_sku(self, sku_id: UUID) -> Optional[SKU]:
         return await self.session.get(SKU, sku_id)
@@ -105,7 +130,8 @@ class ProductRepository:
         return result.first()
 
     async def get_product_image(self, image_id: UUID) -> Optional[Image]:
-        return await self.session.get(Image, image_id)
+        result = await self.session.exec(select(Image).where(Image.id == image_id))
+        return result.first()
 
 
     async def save_product_image(self, image: Image) -> Image:
@@ -117,12 +143,4 @@ class ProductRepository:
 
     async def delete_product_image(self, image: Image) -> None:
         await self.session.delete(image)
-
-    async def commit(self) -> None:
         await self.session.commit()
-
-    async def rollback(self) -> None:
-        await self.session.rollback()
-
-    async def flush(self) -> None:
-        await self.session.flush()
