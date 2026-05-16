@@ -1,8 +1,9 @@
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy import update, func
 from uuid import UUID
-from typing import Optional, List
+from typing import Optional, List, Sequence
 
 from app.models.category import Category
 
@@ -18,13 +19,24 @@ class CategoryRepository:
         await self.session.refresh(category)
         return category
 
-    async def get_by_id(self, category_id: UUID) -> Optional[Category]:
-        result = await self.session.exec(
-            select(Category)
-            .where(Category.id == category_id)
-            .options(selectinload(Category.children))
-        )
-        return result.first()
+    async def get_by_id(self, category_id: UUID, include_children: bool = False) -> Optional[Category]:
+        query = select(Category).where(Category.id == category_id)
+        if include_children:
+            query = query.options(selectinload(Category.children))
+
+        result = await self.session.execute(query)
+
+        return result.scalar_one_or_none()
+    
+    async def gt_by_ids(self, ids: List[UUID]) -> Sequence[Category]:
+        query = select(Category).where(Category.id.in_(ids))
+        result = await self.session.exec(query)
+        return result.all()
+    
+    async def get_by_ids(self, ids: List[UUID]) -> Sequence[Category]:
+        query = select(Category).where(Category.id.in_(ids))
+        result = await self.session.exec(query)
+        return result.all()
 
     async def list(
         self,
@@ -52,7 +64,39 @@ class CategoryRepository:
         await self.session.delete(category)
         await self.session.commit()
 
-    async def get_all(self) -> List[Category]:
+    async def get_all_for_tree(self) -> Sequence[Category]:
         result = await self.session.exec(
-            select(Category))
+            select(Category)
+            .where(Category.is_active == True))
         return result.all()
+    
+    async def update(self, category: Category) -> Category:
+        await self.session.commit()
+        await self.session.refresh(category)
+        return category
+    
+    async def get_existing_slugs(self) -> set[str]:
+        result = await self.session.exec(select(Category.slug))
+        return set(result.all())
+    
+    async def has_products(self, category_id: UUID) -> bool:
+        from app.models.product import Product
+        query = select(Product).where(Product.category_id == category_id).limit(1)
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none() is not None
+    
+    async def update_descendants_path(self, old_full_path: str, new_full_path: str, level_delta: int):
+        """
+        Массово обновляет path и level у всех категорий, чей путь начинается с old_full_path.
+        Например: переместили папку, нужно во всех вложенных путях заменить старый префикс на новый.
+        """
+
+        query = (
+            update(Category)
+            .where(Category.path.like(f"{old_full_path}%") | (Category.path == old_full_path))
+            .values(
+                path=func.replace(Category.path, old_full_path, new_full_path),
+                level=Category.level + level_delta
+            )
+        )
+        await self.session.exec(query)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
@@ -22,10 +24,18 @@ class CategoryUpdate(BaseModel):
         title="Parent Id",
     )
 
+    is_active: Optional[bool] = Field(
+        default=None,
+        title="Is active"
+    )
+
 class CategoryResponse(BaseModel):
     id: UUID
     name: str
     parent_id: Optional[UUID]
+    is_active: bool
+    level: int
+    path: str
     created_at: datetime
 
     model_config = {
@@ -36,8 +46,20 @@ class CategoryWithChildrenResponse(BaseModel):
     id: UUID
     name: str
     parent_id: Optional[UUID]
+    is_active: bool
+    level: int
+    path: str
     created_at: datetime
     children: List[CategoryResponse] = []
+
+    model_config = {
+        "from_attributes": True
+    }
+
+class CategoryTreeResponse(BaseModel):
+    id: UUID
+    name: str
+    children: List[CategoryTreeResponse] = []
 
     model_config = {
         "from_attributes": True

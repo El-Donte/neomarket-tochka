@@ -9,6 +9,7 @@ from app.DTO.category import (
     CategoryUpdate,
     CategoryResponse,
     CategoryWithChildrenResponse,
+    CategoryTreeResponse
 )
 from app.application.services.category_service import CategoryService
 from app.infrastructure.repositories.category_repository import CategoryRepository
@@ -18,16 +19,16 @@ from app.api.v1.dependencies.seller_depends import get_current_seller
 router = APIRouter()
 
 
-def get_service(
+def get_category_service(
     session: AsyncSession = Depends(get_session),
 ) -> CategoryService:
     return CategoryService(CategoryRepository(session))
 
 @router.get("/", response_model=List[CategoryResponse])
-async def get_categories(
+async def list_categories(
     parent_id: Optional[UUID] = Query(default=None),
     only_root: bool = Query(default=False),
-    service: CategoryService = Depends(get_service),
+    service: CategoryService = Depends(get_category_service),
 ):
     return await service.get_category_list(parent_id, only_root)
 
@@ -38,10 +39,14 @@ async def get_categories(
 )
 async def create_category(
     data: CategoryCreate,
-    service: CategoryService = Depends(get_service),
-    seller_id: UUID = Depends(get_current_seller)
+    service: CategoryService = Depends(get_category_service),
+    _: UUID = Depends(get_current_seller)
 ):
     return await service.create_category(data)
+
+@router.get("/tree", response_model=List[CategoryTreeResponse])
+async def get_categories_tree(service: CategoryService = Depends(get_category_service)):
+    return await service.get_tree()
 
 @router.get(
     "/{category_id}",
@@ -49,9 +54,9 @@ async def create_category(
 )
 async def get_category(
     category_id: UUID,
-    service: CategoryService = Depends(get_service),
+    service: CategoryService = Depends(get_category_service),
 ):
-    return await service.get_category(category_id)
+    return await service.get_category_with_children(category_id)
 
 @router.patch(
     "/{category_id}",
@@ -60,8 +65,8 @@ async def get_category(
 async def update_category(
     category_id: UUID,
     data: CategoryUpdate,
-    service: CategoryService = Depends(get_service),
-    seller_id: UUID = Depends(get_current_seller)
+    service: CategoryService = Depends(get_category_service),
+    _: UUID = Depends(get_current_seller)
 ):
     return await service.update_category(category_id, data)
 
@@ -71,7 +76,14 @@ async def update_category(
 )
 async def delete_category(
     category_id: UUID,
-    service: CategoryService = Depends(get_service),
-    seller_id: UUID = Depends(get_current_seller)
+    service: CategoryService = Depends(get_category_service),
+    _: UUID = Depends(get_current_seller)
 ):
     await service.delete_category(category_id)
+
+@router.get("/{category_id}/breadcrumbs", response_model=List[CategoryResponse])
+async def get_category_breadcrumbs(
+    category_id: UUID,
+    service: CategoryService = Depends(get_category_service)
+):
+    return await service.get_breadcrumbs(category_id)

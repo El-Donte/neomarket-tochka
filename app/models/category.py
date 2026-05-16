@@ -5,6 +5,7 @@ from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
+from slugify import slugify
 
 if TYPE_CHECKING:
     from app.models.product import Product
@@ -17,6 +18,9 @@ class Category(SQLModel, table=True):
     parent_id: Optional[UUID] = Field(default=None, foreign_key="categories.id")
     image_url: Optional[str] = None
     is_active: bool = Field(default=True)
+    level: int = Field(default=0)
+    path: str = Field(default="")
+    slug: str
     
     # SEO поля
     seo_title: Optional[str] = None
@@ -32,3 +36,16 @@ class Category(SQLModel, table=True):
     )
     children: List["Category"] = Relationship(back_populates="parent")
     products: List["Product"] = Relationship(back_populates="category")
+
+    @staticmethod
+    def generate_slug(name: str, existing_slugs: Optional[set]) -> str:
+        base = slugify(name, max_length=100)
+        if not base:
+            base = "category"
+        slug = base
+        counter = 1
+        while existing_slugs and slug in existing_slugs:
+            slug = f"{base}-{counter}"
+            counter += 1
+            
+        return slug

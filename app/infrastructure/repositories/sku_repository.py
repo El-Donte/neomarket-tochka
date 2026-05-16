@@ -125,7 +125,6 @@ class SKURepository:
         return image
 
     async def update_image(self, image: Image) -> Image:
-        # Объект уже отслеживается, просто сливаем изменения
         self.session.add(image)
         await self.session.flush()
         return image

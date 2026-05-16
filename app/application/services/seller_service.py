@@ -1,5 +1,4 @@
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.repositories.seller_repository import SellerRepository
 from app.DTO.seller import SellerUpdate
