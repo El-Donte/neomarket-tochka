@@ -59,7 +59,8 @@ class CategoryService:
             path=path,
         )
             
-        return await self.repo.create(new_category)
+        created_category = await self.repo.create(new_category)
+        return await self.repo.get_by_id(created_category.id, include_children=True)
     
     async def get_category_with_children(self, category_id: UUID) -> Category:
         category = await self.repo.get_by_id(category_id, include_children=True)

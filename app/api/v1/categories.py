@@ -36,7 +36,7 @@ async def list_categories(
 
 @router.post(
     "/",
-    response_model=CategoryResponse,
+    response_model=CategoryWithChildrenResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(security)]
 )

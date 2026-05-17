@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from app.DTO.sku import SKURead
+from app.DTO.sku import SKURead, SKUPublicResponse, CharacteristicCreate, CharacteristicRead
 from pydantic import BaseModel, Field
 from uuid import UUID
 
@@ -18,6 +18,7 @@ class ProductCreate(BaseModel):
     description: str
     category_id: UUID
     slug: Optional[str] = None
+    characteristics: Optional[List[CharacteristicCreate]] = []
 
     model_config = {"from_attributes": True}
 
@@ -30,11 +31,12 @@ class ProductResponse(BaseModel):
     images: list[ImageResponse]
     description: str
     status: ProductStatus
-    is_deleted: bool
+    deleted: bool = Field(validation_alias="is_deleted")
     blocking_reason_id: Optional[UUID] = None
     moderator_comment: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    characteristics: List[CharacteristicRead] = []
     skus: List[SKURead]
 
     model_config = {"from_attributes": True}
@@ -50,7 +52,8 @@ class ProductPublicResponse(BaseModel):
     status: ProductStatus
     created_at: datetime
     updated_at: datetime
-    skus: List[SKURead] = []
+    characteristics: List[CharacteristicRead] = []
+    skus: List[SKUPublicResponse] = []
 
     model_config = {"from_attributes": True}
 
@@ -58,6 +61,7 @@ class ProductUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     category_id: Optional[UUID] = None
+    characteristics: Optional[List[CharacteristicCreate]] = None
 
     model_config = {"from_attributes": True}
 
@@ -79,7 +83,7 @@ class ProductShortResponse(BaseModel):
     slug: str
     status: ProductStatus
     category_id: UUID
-    is_deleted: bool
+    deleted: bool = Field(validation_alias="is_deleted")
     created_at: datetime
     min_price: Optional[int] = None
     cover_image: Optional[str] = None
@@ -93,3 +97,37 @@ class ProductPaginatedResponse(BaseModel):
     offset: int
 
     model_config = {"from_attributes": True}
+
+class ProductPublicShortResponse(BaseModel):
+    id: UUID
+    title: str
+    slug: str
+    category_id: UUID
+    min_price: Optional[int] = None
+    cover_image: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+class ProductPublicPaginatedResponse(BaseModel):
+    items: List[ProductPublicShortResponse] = []
+    total_count: int
+    limit: int
+    offset: int
+
+    model_config = {"from_attributes": True}
+
+class FieldReport(BaseModel):
+    field_name: str
+    sku_id: Optional[UUID] = None
+    comment: str
+
+class ModerationEventRequest(BaseModel):
+    idempotency_key: UUID
+    product_id: UUID
+    event_type: str # MODERATED, BLOCKED
+    moderator_id: Optional[UUID] = None
+    moderator_comment: Optional[str] = None
+    blocking_reason_id: Optional[UUID] = None
+    hard_block: bool = False
+    field_reports: Optional[List[FieldReport]] = None
+    occurred_at: datetime

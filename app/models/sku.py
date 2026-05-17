@@ -26,11 +26,26 @@ class SKU(SQLModel, table=True):
     product_id: UUID = Field(foreign_key="products.id")
     name: str
     price: int  # В копейках/центах
+    discount: int = Field(default=0)
+    cost_price: Optional[int] = Field(default=None)
+    article: Optional[str] = Field(default=None)
     old_price: Optional[int] = Field(default=None)
     status: str = Field(default="ACTIVE")
     
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
+
+    @property
+    def stock_quantity(self) -> int:
+        return self.stock.stock_quantity if self.stock else 0
+
+    @property
+    def active_quantity(self) -> int:
+        return self.stock.active_quantity if self.stock else 0
+
+    @property
+    def reserved_quantity(self) -> int:
+        return self.stock.reserved_quantity if self.stock else 0
 
     product: "Product" = Relationship(back_populates="skus")
     characteristics: List[CharacteristicValue] = Relationship(back_populates="sku")

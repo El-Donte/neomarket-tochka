@@ -17,6 +17,8 @@ class Invoice(SQLModel, table=True):
     comment: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
+    accepted_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    accepted_by: Optional[UUID] = None
 
     items: List["InvoiceItem"] = Relationship(back_populates="invoice")
 
@@ -28,6 +30,7 @@ class InvoiceItem(SQLModel, table=True):
     sku_id: UUID = Field(foreign_key="skus.id")
     quantity: int
     purchase_price: Optional[int] = None
+    accepted_quantity: int = Field(default=0)
 
     invoice: "Invoice" = Relationship(back_populates="items")
     sku: "SKU" = Relationship(back_populates="invoice_items")
@@ -37,7 +40,9 @@ class Stock(SQLModel, table=True):
     __tablename__ = "stocks"
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     sku_id: UUID = Field(foreign_key="skus.id", unique=True)
-    quantity: int = Field(default=0)
+    stock_quantity: int = Field(default=0)
+    active_quantity: int = Field(default=0)
+    reserved_quantity: int = Field(default=0)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
 
     sku: Optional["SKU"] = Relationship(back_populates="stock")

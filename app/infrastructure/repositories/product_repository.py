@@ -1,11 +1,11 @@
-from sqlmodel import select
+from sqlmodel import select, or_, and_, desc, asc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from uuid import UUID
-from typing import Optional, Sequence
+from typing import Optional, Sequence, List
 
-from app.models.product import Product
+from app.models.product import Product, ProductStatus
 from app.models.sku import SKU, CharacteristicValue
 from app.models.invoice import Stock, InvoiceItem
 from app.models.image import Image
@@ -34,27 +34,33 @@ class ProductRepository:
         count_query = select(func.count()).select_from(query.subquery())
         total = await self.session.exec(count_query)
 
-        query = query.limit(limit).offset(offset).options(selectinload(Product.images))
+        query = query.limit(limit).offset(offset).options(
+            selectinload(Product.images),
+            selectinload(Product.skus)
+        )
         result = await self.session.exec(query)
         return result.all(), total.one()
 
     async def create(self, product: Product) -> Product:
         self.session.add(product)
         await self.session.commit()
-
         return await self.get_by_id(product.id)
 
     async def get_by_id(self, product_id: UUID) -> Optional[Product]:
         result = await self.session.exec(
             select(Product)
             .where(Product.id == product_id)
-            .options(selectinload(Product.images), selectinload(Product.skus))
+            .options(
+                selectinload(Product.images), 
+                selectinload(Product.skus).selectinload(SKU.images),
+                selectinload(Product.skus).selectinload(SKU.characteristics),
+                selectinload(Product.skus).selectinload(SKU.stock)
+            )
         )
         return result.first()
     
     async def update(self, product: Product) -> Product:
         await self.session.commit()
-        
         return await self.get_by_id(product.id)
 
     async def get_by_id_with_skus(self, product_id: UUID, seller_id: UUID) -> Optional[Product]:
@@ -65,12 +71,6 @@ class ProductRepository:
             .options(selectinload(Product.skus))
         )
         return result.first()
-
-    async def list_by_seller(self, seller_id: UUID) -> list[Product]:
-        result = await self.session.exec(
-            select(Product).where(Product.seller_id == seller_id)
-        )
-        return result.all()
 
     async def list_by_seller_with_skus(
         self,
@@ -91,8 +91,153 @@ class ProductRepository:
     async def save(self, product: Product) -> Product:
         self.session.add(product)
         await self.session.commit()
-
         return await self.get_by_id(product.id)
+
+    async def get_skus_by_product(self, product_id: UUID) -> List[SKU]:
+        result = await self.session.exec(
+            select(SKU)
+            .where(SKU.product_id == product_id)
+            .options(
+                selectinload(SKU.images),
+                selectinload(SKU.characteristics),
+                selectinload(SKU.stock)
+            )
+        )
+        return list(result.all())
+
+    # ---------- Public Catalog Methods ----------
+
+    async def get_public_paginated(
+        self,
+        category_ids: Optional[List[UUID]] = None,
+        search: Optional[str] = None,
+        min_price: Optional[int] = None,
+        max_price: Optional[int] = None,
+        seller_id: Optional[UUID] = None,
+        sort: str = "created_desc",
+        limit: int = 20,
+        offset: int = 0
+    ):
+        query = select(Product).where(
+            Product.status == ProductStatus.MODERATED,
+            Product.is_deleted == False
+        )
+        
+        # Only show products with SKUs that have stock
+        query = query.join(SKU).join(Stock).where(Stock.active_quantity > 0)
+
+        if category_ids:
+            query = query.where(Product.category_id.in_(category_ids))
+        if seller_id:
+            query = query.where(Product.seller_id == seller_id)
+        if search:
+            query = query.where(or_(
+                Product.title.ilike(f"%{search}%"),
+                Product.description.ilike(f"%{search}%")
+            ))
+        
+        if min_price is not None:
+            query = query.where(SKU.price >= min_price)
+        if max_price is not None:
+            query = query.where(SKU.price <= max_price)
+
+        if sort == "price_asc":
+            query = query.order_by(asc(SKU.price))
+        elif sort == "price_desc":
+            query = query.order_by(desc(SKU.price))
+        elif sort == "popular":
+            # Just created_desc for now
+            query = query.order_by(desc(Product.created_at))
+        else:
+            query = query.order_by(desc(Product.created_at))
+
+        query = query.distinct()
+
+        count_query = select(func.count()).select_from(query.subquery())
+        total = await self.session.exec(count_query)
+
+        query = query.limit(limit).offset(offset).options(
+            selectinload(Product.images),
+            selectinload(Product.skus).selectinload(SKU.images),
+            selectinload(Product.skus).selectinload(SKU.stock)
+        )
+        result = await self.session.exec(query)
+        
+        products = result.all()
+        # Add min_price and cover_image manually if needed by DTO
+        # But DTO can handle it if we load correctly.
+        return products, total.one()
+
+    async def get_public_by_id(self, product_id: UUID) -> Optional[Product]:
+        result = await self.session.exec(
+            select(Product)
+            .where(
+                Product.id == product_id,
+                Product.status == ProductStatus.MODERATED,
+                Product.is_deleted == False
+            )
+            .options(
+                selectinload(Product.images),
+                selectinload(Product.skus).selectinload(SKU.images),
+                selectinload(Product.skus).selectinload(SKU.characteristics),
+                selectinload(Product.skus).selectinload(SKU.stock)
+            )
+        )
+        return result.first()
+
+    async def get_public_batch(self, product_ids: List[UUID]) -> List[Product]:
+        result = await self.session.exec(
+            select(Product)
+            .where(
+                Product.id.in_(product_ids),
+                Product.status == ProductStatus.MODERATED,
+                Product.is_deleted == False
+            )
+            .options(
+                selectinload(Product.images),
+                selectinload(Product.skus).selectinload(SKU.images),
+                selectinload(Product.skus).selectinload(SKU.characteristics),
+                selectinload(Product.skus).selectinload(SKU.stock)
+            )
+        )
+        return list(result.all())
+
+    async def get_similar_public(self, product_id: UUID, limit: int) -> List[Product]:
+        product = await self.get_by_id(product_id)
+        if not product:
+            return []
+        
+        result = await self.session.exec(
+            select(Product)
+            .where(
+                Product.category_id == product.category_id,
+                Product.id != product_id,
+                Product.status == ProductStatus.MODERATED,
+                Product.is_deleted == False
+            )
+            .limit(limit)
+            .options(selectinload(Product.images))
+        )
+        return list(result.all())
+
+    async def get_public_sku(self, sku_id: UUID) -> Optional[SKU]:
+        result = await self.session.exec(
+            select(SKU)
+            .join(Product)
+            .where(
+                SKU.id == sku_id,
+                Product.status == ProductStatus.MODERATED,
+                Product.is_deleted == False
+            )
+            .options(
+                selectinload(SKU.images),
+                selectinload(SKU.characteristics),
+                selectinload(SKU.stock)
+            )
+        )
+        return result.first()
+
+    # ---------- Common Methods ----------
 
     async def get_sku(self, sku_id: UUID) -> Optional[SKU]:
         return await self.session.get(SKU, sku_id)
@@ -133,14 +278,18 @@ class ProductRepository:
         result = await self.session.exec(select(Image).where(Image.id == image_id))
         return result.first()
 
-
     async def save_product_image(self, image: Image) -> Image:
         self.session.add(image)
         await self.session.commit()
         await self.session.refresh(image)
         return image
 
-
     async def delete_product_image(self, image: Image) -> None:
         await self.session.delete(image)
         await self.session.commit()
+
+    async def commit(self):
+        await self.session.commit()
+
+    async def rollback(self):
+        await self.session.rollback()

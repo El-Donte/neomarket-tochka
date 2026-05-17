@@ -22,9 +22,11 @@ async def create_db_and_tables():
     from app.models.product import Product
     from app.models.category import Category
     from app.models.sku import SKU
-    from app.models.invoice import Stock
+    from app.models.invoice import Stock, Invoice, InvoiceItem
     from app.models.seller import Seller
     from app.models.sku import CharacteristicValue
+    from app.models.image import Image
+    from app.models.idempotency import IdempotencyKey
     
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)

@@ -85,6 +85,20 @@ class CategoryRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none() is not None
     
+    async def get_descendants_ids(self, category_id: UUID) -> List[UUID]:
+        category = await self.get_by_id(category_id)
+        if not category:
+            return []
+        
+        prefix = f"{category.path}/{category.id}".strip("/")
+        statement = select(Category.id).where(
+            (Category.path == prefix) | (Category.path.like(f"{prefix}/%"))
+        )
+        result = await self.session.exec(statement)
+        ids = list(result.all())
+        ids.append(category_id)
+        return ids
+
     async def update_descendants_path(self, old_full_path: str, new_full_path: str, level_delta: int):
         """
         Массово обновляет path и level у всех категорий, чей путь начинается с old_full_path.

@@ -47,6 +47,26 @@ class Product(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
     
+    @property
+    def min_price(self) -> Optional[int]:
+        if not self.skus:
+            return None
+        return min((sku.price for sku in self.skus), default=None)
+
+    @property
+    def cover_image(self) -> Optional[str]:
+        if self.images:
+            # Return first image by ordering
+            sorted_images = sorted(self.images, key=lambda x: x.ordering)
+            return sorted_images[0].url
+        if self.skus:
+            # Fallback to first SKU image
+            for sku in self.skus:
+                if sku.images:
+                    sorted_images = sorted(sku.images, key=lambda x: x.ordering)
+                    return sorted_images[0].url
+        return None
+    
     images: List["Image"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     seller: "Seller" = Relationship(back_populates="products")
     category: Optional[Category] = Relationship(back_populates="products")

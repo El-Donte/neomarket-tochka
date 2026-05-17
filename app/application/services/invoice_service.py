@@ -1,9 +1,10 @@
 from uuid import UUID
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
+from typing import Optional
 
 from app.models.invoice import Invoice, InvoiceItem, Stock
-from app.DTO.invoice import InvoiceCreate
+from app.DTO.invoice import InvoiceCreate, InvoiceAcceptRequest
 from app.infrastructure.repositories.invoice_repository import InvoiceRepository
 
 
@@ -12,14 +13,20 @@ class InvoiceService:
     def __init__(self, repo: InvoiceRepository):
         self.repo = repo
 
-    async def create_invoice(self, invoice_in: InvoiceCreate, seller_id: UUID):
+    async def list_invoices(self, seller_id: UUID, limit: int, offset: int, status_filter: Optional[str] = None):
+        return await self.repo.list_invoices(seller_id, limit, offset, status_filter)
 
+    async def get_invoice(self, invoice_id: UUID, seller_id: UUID):
+        invoice = await self.repo.get_by_id(invoice_id)
+        if not invoice or invoice.seller_id != seller_id:
+            raise HTTPException(status_code=404, detail="Накладная не найдена")
+        return invoice
+
+    async def create_invoice(self, invoice_in: InvoiceCreate, seller_id: UUID):
         invoice = Invoice(
             seller_id=seller_id,
-            number=invoice_in.number,
-            comment=invoice_in.comment,
+            status="CREATED"
         )
-
         await self.repo.create_invoice(invoice)
 
         items = [
@@ -27,71 +34,72 @@ class InvoiceService:
                 invoice_id=invoice.id,
                 sku_id=item.sku_id,
                 quantity=item.quantity,
-                purchase_price=item.purchase_price,
             )
             for item in invoice_in.items
         ]
 
         await self.repo.add_items(items)
         await self.repo.commit()
+        return await self.repo.get_by_id(invoice.id)
 
-        return invoice
-
-    async def accept_invoice(self, invoice_id: UUID, seller_id: UUID):
+    async def delete_invoice(self, invoice_id: UUID, seller_id: UUID):
         invoice = await self.repo.get_by_id(invoice_id)
-
         if not invoice or invoice.seller_id != seller_id:
             raise HTTPException(status_code=404, detail="Накладная не найдена")
-
+        
         if invoice.status != "CREATED":
+            raise HTTPException(status_code=409, detail="Нельзя удалить принятую накладную")
+        
+        await self.repo.delete(invoice)
+        await self.repo.commit()
+
+    async def accept_invoice(self, invoice_id: UUID, accept_in: Optional[InvoiceAcceptRequest], accepted_by: UUID):
+        invoice = await self.repo.get_by_id(invoice_id)
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Накладная не найдена")
+
+        if invoice.status in ["ACCEPTED", "CANCELLED"]:
             raise HTTPException(
-                status_code=400,
+                status_code=409,
                 detail=f"Накладная уже {invoice.status}",
             )
 
         items = await self.repo.get_items(invoice_id)
-
         if not items:
             raise HTTPException(status_code=400, detail="Накладная пуста")
 
-        sku_quantities = {}
-        for item in items:
-            sku_quantities[item.sku_id] = (
-                sku_quantities.get(item.sku_id, 0) + item.quantity
-            )
-
+        # Map for quick access
+        items_map = {item.id: item for item in items}
+        
+        accepted_at = datetime.now(timezone.utc)
+        
         try:
-            for sku_id, quantity in sku_quantities.items():
+            if not accept_in or not accept_in.accepted_items:
+                # Accept all
+                for item in items:
+                    item.accepted_quantity = item.quantity
+                    await self.repo.update_stock(item.sku_id, item.quantity)
+                invoice.status = "ACCEPTED"
+            else:
+                # Partial accept
+                any_accepted = False
+                for acc_item in accept_in.accepted_items:
+                    if acc_item.invoice_item_id in items_map:
+                        item = items_map[acc_item.invoice_item_id]
+                        item.accepted_quantity = acc_item.accepted_quantity
+                        await self.repo.update_stock(item.sku_id, acc_item.accepted_quantity)
+                        any_accepted = True
+                
+                invoice.status = "PARTIALLY_ACCEPTED" if any_accepted else "CANCELLED"
 
-                sku = await self.repo.get_sku(sku_id)
-
-                if not sku or sku.seller_id != seller_id:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"SKU {sku_id} недоступен",
-                    )
-
-                stock = await self.repo.get_stock(sku_id)
-
-                if stock:
-                    stock.quantity += quantity
-                    stock.updated_at = datetime.now(timezone.utc)
-                    await self.repo.save(stock)
-                else:
-                    new_stock = Stock(
-                        sku_id=sku_id,
-                        quantity=quantity,
-                    )
-                    await self.repo.save(new_stock)
-
-            invoice.status = "ACCEPTED"
-            invoice.updated_at = datetime.now(timezone.utc)
+            invoice.accepted_at = accepted_at
+            invoice.accepted_by = accepted_by
+            invoice.updated_at = accepted_at
+            
             await self.repo.save(invoice)
-
             await self.repo.commit()
+            return await self.repo.get_by_id(invoice.id)
 
-        except Exception:
+        except Exception as e:
             await self.repo.rollback()
-            raise
-
-        return invoice
+            raise HTTPException(status_code=500, detail=str(e))

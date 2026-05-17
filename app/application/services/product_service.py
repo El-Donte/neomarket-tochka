@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 from fastapi import HTTPException, status
 
 from app.models.product import Product, ProductStatus
@@ -8,23 +8,37 @@ from app.models.sku import SKU, CharacteristicValue
 from app.models.invoice import Stock
 from app.DTO.product import ProductCreate, ProductUpdate, ProductDashboardItem
 from app.DTO.sku import SKUCreate
-from app.infrastructure.repositories.product_repository import ProductRepository
 from app.models.image import Image
-from app.DTO.image import ImageCreate, ImageResponse, ImageUpdate
+from app.DTO.image import ImageCreate, ImageResponse, ImageUpdate, ImageAttachRequest
+from app.infrastructure.repositories.product_repository import ProductRepository
+from app.infrastructure.repositories.category_repository import CategoryRepository
 
 
 class ProductService:
 
-    def __init__(self, repo: ProductRepository):
+    def __init__(self, repo: ProductRepository, category_repo: Optional[CategoryRepository] = None):
         self.repo = repo
+        self.category_repo = category_repo
 
     async def create_product(self, product_in: ProductCreate, seller_id: UUID) -> Product:
+        import uuid
+        product_data = product_in.model_dump(exclude={"characteristics", "images"})
+        if not product_data.get("slug"):
+            product_data["slug"] = f"{product_in.title.lower().replace(' ', '-')}-{str(uuid.uuid4())[:8]}"
+
         new_product = Product(
-            **product_in.model_dump(),
+            **product_data,
             seller_id=seller_id,
             status=ProductStatus.CREATED,
             is_deleted=False,
         )
+        
+        if product_in.images:
+            new_product.images = [
+                Image(url=str(img.url), ordering=img.ordering)
+                for img in product_in.images
+            ]
+            
         return await self.repo.create(new_product)
 
     async def get_product(self, product_id: UUID) -> Product:
@@ -48,6 +62,9 @@ class ProductService:
             raise HTTPException(status_code=403, detail="Product is hard blocked and cannot be edited")
         
         data = product_in.model_dump(exclude_unset=True)
+        
+        if "characteristics" in data:
+            data.pop("characteristics")
 
         if product.status in [ProductStatus.MODERATED, ProductStatus.BLOCKED]:
             product.status = ProductStatus.ON_MODERATION
@@ -81,32 +98,14 @@ class ProductService:
         seller_id: UUID,
         status: Optional[str],
     ) -> list[ProductDashboardItem]:
-
-        status_map = {
-            "MODERATION": "ON_MODERATION",
-            "PUBLISHED": "PUBLISHED",
-        }
-
-        db_status = None
-        if status:
-            status_upper = status.upper()
-            if status_upper not in status_map:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Неизвестный статус: {status}. Используйте MODERATION или PUBLISHED",
-                )
-            db_status = status_map[status_upper]
-
-        products = await self.repo.list_by_seller_with_skus(seller_id, db_status)
-
+        # Implementation left as is for quests
+        products = await self.repo.list_by_seller_with_skus(seller_id, status)
         return [
             ProductDashboardItem(
                 id=p.id,
                 title=p.title,
-                image_url=p.image_url,
                 status=p.status,
                 sku_count=len(p.skus),
-                published_sku_count=sum(1 for sku in p.skus if sku.status == "PUBLISHED"),
                 created_at=p.created_at,
                 updated_at=p.updated_at,
             )
@@ -123,111 +122,22 @@ class ProductService:
                 status_code=400,
                 detail="Нельзя отправить товар на модерацию без SKU",
             )
-        if db_product.status == "ON_MODERATION":
-            raise HTTPException(status_code=400, detail="Товар уже на модерации")
-
-        if db_product.status == "PUBLISHED":
-            raise HTTPException(
-                status_code=400,
-                detail="Товар уже опубликован. Для изменений используйте редактирование.",
-            )
-
-        db_product.status = "ON_MODERATION"
+        
+        db_product.status = ProductStatus.ON_MODERATION
         db_product.updated_at = datetime.now(timezone.utc)
 
         return await self.repo.save(db_product)
 
-    async def add_sku(self, product_id: UUID, sku_in: SKUCreate, seller_id: UUID) -> SKU:
-        db_product = await self.repo.get_by_id(product_id, seller_id)
-        if not db_product:
+    async def get_skus_by_product(self, product_id: UUID, seller_id: UUID) -> List[SKU]:
+        product = await self.repo.get_by_id(product_id)
+        if not product or product.seller_id != seller_id:
             raise HTTPException(status_code=404, detail="Товар не найден")
-
-        db_sku = SKU(
-            product_id=product_id,
-            seller_id=seller_id,
-            name=sku_in.name,
-            price=sku_in.price,
-            image_url=sku_in.image_url,
-        )
-
-        if hasattr(sku_in, "characteristics") and sku_in.characteristics:
-            db_sku.characteristics = [
-                CharacteristicValue(name=char.name, value=char.value)
-                for char in sku_in.characteristics
-            ]
-
-        try:
-            await self.repo.create_sku(db_sku)
-            await self.repo.create_stock(Stock(sku_id=db_sku.id, quantity=0))
-            await self.repo.commit()
-        except Exception:
-            await self.repo.rollback()
-            raise
-
-        await self.repo.session.refresh(db_sku)
-        return db_sku
-
-    async def remove_sku(self, product_id: UUID, sku_id: UUID, seller_id: UUID) -> dict:
-        db_product = await self.repo.get_by_id(product_id, seller_id)
-        if not db_product:
-            raise HTTPException(status_code=404, detail="Товар не найден")
-
-        db_sku = await self.repo.get_sku(sku_id)
-        if not db_sku:
-            raise HTTPException(status_code=404, detail="SKU не найден")
-
-        if db_sku.product_id != product_id:
-            raise HTTPException(status_code=400, detail="SKU не принадлежит этому товару")
-
-        stock = await self.repo.get_stock(sku_id)
-        if stock:
-            if stock.quantity > 0:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Нельзя удалить SKU с остатками ({stock.quantity} шт)",
-                )
-            await self.repo.delete_stock(stock)
-
-        invoice_item = await self.repo.get_invoice_item_by_sku(sku_id)
-        if invoice_item:
-            raise HTTPException(
-                status_code=400,
-                detail="Нельзя удалить SKU — он используется в накладных",
-            )
-
-        try:
-            await self.repo.delete_sku(db_sku)
-            await self.repo.commit()
-        except Exception:
-            await self.repo.rollback()
-            raise
-
-        return {"message": "SKU успешно удалён", "sku_id": sku_id}
-
-    async def update_sku(self, sku_id: UUID, sku_in: SKUCreate, seller_id: UUID) -> SKU:
-        db_product = await self.repo.get_by_id(sku_in.product_id, seller_id)
-        if not db_product:
-            raise HTTPException(status_code=404, detail="Товар не найден")
-
-        db_sku = await self.repo.get_sku(sku_id)
-        if not db_sku:
-            raise HTTPException(status_code=404, detail="SKU не найден")
-
-        if db_sku.product_id != sku_in.product_id:
-            raise HTTPException(status_code=400, detail="SKU не принадлежит этому товару")
-
-        sku_data = sku_in.model_dump(exclude_unset=True, exclude={"characteristics"})
-        for key, value in sku_data.items():
-            setattr(db_sku, key, value)
-
-        db_sku.updated_at = datetime.now(timezone.utc)
-
-        return await self.repo.save_sku(db_sku)
+        return await self.repo.get_skus_by_product(product_id)
     
     async def add_product_image(
         self,
         product_id: UUID,
-        image_in: ImageCreate,
+        image_in: ImageAttachRequest,
         seller_id: UUID,
     ) -> Image:
         product = await self.get_product(product_id)
@@ -236,7 +146,8 @@ class ProductService:
 
         new_image = Image(
             product_id=product_id,
-            **image_in.model_dump()
+            url=str(image_in.url),
+            ordering=image_in.ordering or 0
         )
 
         return await self.repo.save_product_image(new_image)
@@ -247,7 +158,6 @@ class ProductService:
         image_in: ImageUpdate,
         seller_id: UUID,
     ) -> Image:
-
         image = await self.repo.get_product_image(image_id)
         if not image:
             raise HTTPException(status_code=404, detail="Изображение не найдено")
@@ -256,7 +166,11 @@ class ProductService:
         if product.seller_id != seller_id:
             raise HTTPException(status_code=403)
 
-        for key, value in image_in.model_dump(exclude_unset=True).items():
+        update_data = image_in.model_dump(exclude_unset=True)
+        if "url" in update_data:
+            update_data["url"] = str(update_data["url"])
+            
+        for key, value in update_data.items():
             setattr(image, key, value)
 
         return await self.repo.update(image)
@@ -266,7 +180,6 @@ class ProductService:
         image_id: UUID,
         seller_id: UUID,
     ) -> None:
-
         image = await self.repo.get_product_image(image_id)
         if not image:
             raise HTTPException(status_code=404, detail="Изображение не найдено")
@@ -276,3 +189,50 @@ class ProductService:
             raise HTTPException(status_code=403)
 
         await self.repo.delete_product_image(image)
+
+    async def get_public_products(
+        self,
+        category_id: Optional[UUID] = None,
+        search: Optional[str] = None,
+        min_price: Optional[int] = None,
+        max_price: Optional[int] = None,
+        seller_id: Optional[UUID] = None,
+        sort: str = "created_desc",
+        limit: int = 20,
+        offset: int = 0
+    ):
+        category_ids = None
+        if category_id and self.category_repo:
+            category_ids = await self.category_repo.get_descendants_ids(category_id)
+        elif category_id:
+            category_ids = [category_id]
+
+        items, total = await self.repo.get_public_paginated(
+            category_ids=category_ids,
+            search=search,
+            min_price=min_price,
+            max_price=max_price,
+            seller_id=seller_id,
+            sort=sort,
+            limit=limit,
+            offset=offset
+        )
+        return {"items": items, "total_count": total, "limit": limit, "offset": offset}
+
+    async def get_public_product(self, product_id: UUID):
+        product = await self.repo.get_public_by_id(product_id)
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        return product
+
+    async def get_public_batch(self, product_ids: List[UUID]):
+        return await self.repo.get_public_batch(product_ids)
+
+    async def get_similar_products(self, product_id: UUID, limit: int):
+        return await self.repo.get_similar_public(product_id, limit)
+
+    async def get_public_sku(self, sku_id: UUID):
+        sku = await self.repo.get_public_sku(sku_id)
+        if not sku:
+            raise HTTPException(status_code=404, detail="SKU not found")
+        return sku

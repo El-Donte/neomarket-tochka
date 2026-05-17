@@ -6,13 +6,12 @@ from uuid import UUID
 class InvoiceItemCreate(SQLModel):
     sku_id: UUID
     quantity: int
-    purchase_price: Optional[int] = None
 
 class InvoiceItemRead(SQLModel):
     id: UUID
     sku_id: UUID
     quantity: int
-    purchase_price: Optional[int] = None
+    accepted_quantity: int = 0
 
 class InvoiceItemDetailRead(SQLModel):
     id: UUID
@@ -23,17 +22,30 @@ class InvoiceItemDetailRead(SQLModel):
     sku_price: Optional[int] = None
 
 class InvoiceCreate(SQLModel):
-    number: Optional[str] = None
-    comment: Optional[str] = None
     items: List[InvoiceItemCreate]
 
 class InvoiceRead(SQLModel):
     id: UUID
     seller_id: UUID
-    number: Optional[str] = None
     status: str
-    created_at: datetime
     items: List[InvoiceItemRead] = []
+    created_at: datetime
+    updated_at: datetime
+    accepted_at: Optional[datetime] = None
+    accepted_by: Optional[UUID] = None
+
+class InvoicePaginatedResponse(SQLModel):
+    items: List[InvoiceRead]
+    total_count: int
+    limit: int
+    offset: int
+
+class InvoiceAcceptRequestItem(SQLModel):
+    invoice_item_id: UUID
+    accepted_quantity: int
+
+class InvoiceAcceptRequest(SQLModel):
+    accepted_items: Optional[List[InvoiceAcceptRequestItem]] = None
 
 class InvoiceDetailRead(SQLModel):
     """

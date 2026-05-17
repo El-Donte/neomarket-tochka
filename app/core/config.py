@@ -1,5 +1,6 @@
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -7,7 +8,24 @@ class Settings(BaseSettings):
     VERSION: str = "0.1"
     API_V1_STR: str = "/api/v1"
 
-    DATABASE_URL: str
+    DATABASE_URL: Optional[str] = None
+    DB_USER: str = "postgres"
+    DB_PASSWORD: str = "postgres"
+    DB_HOST: str = "db"
+    DB_PORT: str = "5432"
+    DB_NAME: str = "postgres"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def assemble_db_connection(cls, v: Optional[str], info: any) -> any:
+        if isinstance(v, str):
+            return v
+        
+        return None
+
+    def model_post_init(self, __context: any) -> None:
+        if not self.DATABASE_URL:
+            self.DATABASE_URL = f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
